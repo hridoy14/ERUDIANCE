@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Erudience Ltd — Job Offer Letter</title>
+<link rel="stylesheet" href="brand.css">
+</head>
+<body>
+
+<div class="app-shell">
+  <nav class="app-sidebar" id="appSidebar"></nav>
+
+  <div class="app-main">
+    <button class="sb-hamburger" type="button" onclick="document.querySelector('.app-sidebar').classList.toggle('sb-open')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+
+    <div class="app-toolbar" id="appToolbar"></div>
+    <div class="hint" id="editModeHint" style="display:none;">Content Editor is ON — click any text in the letter to edit it. Click "Content Editor" in the sidebar again to turn it off.</div>
+    <div class="app-bodyarea">
+      <div class="page">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="brand-logo"><img src="data:image/png;base64,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" alt="Erudience Logo" id="brandLogoImg"></div>
+      <div class="brand-info">
+        <div class="brand-name">ERUDIENCE <span>LTD</span></div>
+        <div class="brand-details">
+          <div class="phone-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 3.5H4.8A1.8 1.8 0 0 0 3 5.3C3 13.4 10.6 21 18.7 21a1.8 1.8 0 0 0 1.8-1.8v-3.4l-4.2-1.4-2 2a15 15 0 0 1-5.4-5.4l2-2z"/></svg></span> <span class="phone">+88 01788358314</span><span class="row-delete" onclick="this.parentElement.remove()">&times;</span></div>
+          <div><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="13"/><path d="M2.5 5.5 12 13l9.5-7.5"/></svg></span> bishal@erudience.com<span class="row-delete" onclick="this.parentElement.remove()">&times;</span></div>
+          <div><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"><path d="M12 22C12 22 19.5 15.2 19.5 9.5A7.5 7.5 0 0 0 4.5 9.5C4.5 15.2 12 22 12 22Z"/><circle cx="12" cy="9.5" r="2.75"/></svg></span> Head Office: Sylhet, Bangladesh<span class="row-delete" onclick="this.parentElement.remove()">&times;</span></div>
+          <div><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25"><circle cx="12" cy="12" r="9.5"/><ellipse cx="12" cy="12" rx="4.2" ry="9.5"/><path d="M2.5 12h19M4.2 6.5h15.6M4.2 17.5h15.6"/></svg></span> erudience.com<span class="row-delete" onclick="this.parentElement.remove()">&times;</span></div>
+          <div class="add-header-line" onclick="addHeaderLine()">+ Add line</div>
+        </div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="tagline">AI AUTOMATION AGENCY</div>
+      <div class="est-badge">Est. 2022</div>
+      <div class="title-block">Offer Of <span>Employment</span></div>
+      <div class="title-underline"></div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <div class="meta-row">
+      <div class="to-block">
+        <span class="to-label">To:</span>
+        <b contenteditable="plaintext-only" data-placeholder="Candidate Name">Candidate Name</b>
+        <span contenteditable="plaintext-only" data-placeholder="Candidate Address">Candidate Address</span>
+      </div>
+      <div class="date-block">
+        <b>Date:</b> <span contenteditable="plaintext-only" data-placeholder="DD Month, YYYY">DD Month, YYYY</span>
+      </div>
+    </div>
+
+    <div class="subject-line">
+      <b>Subject:</b> <span contenteditable="plaintext-only" data-placeholder="Job Offer for the position of [Job Title]">Job Offer for the position of [Job Title]</span>
+    </div>
+
+    <div class="salutation">Dear <span contenteditable="plaintext-only" data-placeholder="Candidate Name">Candidate Name</span>,</div>
+
+    <div class="pullquote">We are pleased to offer you the position of <b contenteditable="plaintext-only" data-placeholder="[Job Title]">[Job Title]</b> at <b>ERUDIENCE LTD</b>.</div>
+    <p>This offer is extended based on your skills, experience, and the potential we believe you bring to our team.<span class="row-delete" onclick="this.parentElement.remove()">&times;</span></p>
+
+    <p>You will join the Company and work in accordance with the requirements and responsibilities associated with your <span contenteditable="plaintext-only" data-placeholder="assigned role">assigned role</span>.<span class="row-delete" onclick="this.parentElement.remove()">&times;</span></p>
+
+    <div class="section-label">Employment Details</div>
+    <div class="details-box">
+      <div class="row"><span class="label">Job Title</span><span class="value" contenteditable="plaintext-only" data-placeholder="[Job Title]">[Job Title]</span><span class="row-delete" onclick="this.parentElement.remove()">&times;</span></div>
+      <div class="row"><span class="label">Salary</span><span class="value" contenteditable="plaintext-only" data-placeholder="[Salary Amount]">[Salary Amount]</span><span class="row-delete" onclick="this.parentElement.remove()">&times;</span></div>
+      <div class="row"><span class="label">Employment Type</span><span class="value" contenteditable="plaintext-only" data-placeholder="Full-time / Part-time / Contract">Full-time / Part-time / Contract</span><span class="row-delete" onclick="this.parentElement.remove()">&times;</span></div>
+      <div class="row"><span class="label">Work Arrangement</span><span class="value" contenteditable="plaintext-only" data-placeholder="Remote / Office-based / Hybrid, as applicable to the role">Remote / Office-based / Hybrid, as applicable to the role</span><span class="row-delete" onclick="this.parentElement.remove()">&times;</span></div>
+      <div class="row"><span class="label">Working Time</span><span class="value" contenteditable="plaintext-only" data-placeholder="[Working Time]">[Working Time]</span><span class="row-delete" onclick="this.parentElement.remove()">&times;</span></div>
+      <div class="row"><span class="label">Working Hours</span><span class="value" contenteditable="plaintext-only" data-placeholder="[Working Hours]">[Working Hours]</span><span class="row-delete" onclick="this.parentElement.remove()">&times;</span></div>
+      <div class="row"><span class="label">Employment Period</span><span class="value" contenteditable="plaintext-only" data-placeholder="[Employment Period]">[Employment Period]</span><span class="row-delete" onclick="this.parentElement.remove()">&times;</span></div>
+      <div class="row"><span class="label">Start Date</span><span class="value" contenteditable="plaintext-only" data-placeholder="[DD Month, YYYY]">[DD Month, YYYY]</span><span class="row-delete" onclick="this.parentElement.remove()">&times;</span></div>
+    </div>
+
+    <p>As a member of <b>ERUDIENCE LTD</b>, you will contribute to the Company's projects, operations, and business activities in accordance with the requirements of your role.<span class="row-delete" onclick="this.parentElement.remove()">&times;</span></p>
+
+    <p>Further details regarding your role, responsibilities, onboarding process, and other applicable terms will be communicated separately.<span class="row-delete" onclick="this.parentElement.remove()">&times;</span></p>
+
+    <p>If you wish to accept this offer, please confirm your acceptance by <span contenteditable="plaintext-only" data-placeholder="[Acceptance Date]">[Acceptance Date]</span> by replying to this email or contacting us directly at bishal@erudience.com.<span class="row-delete" onclick="this.parentElement.remove()">&times;</span></p>
+
+    <p>We are excited about the possibility of you joining <b>ERUDIENCE LTD</b> and look forward to having you as part of our team.<span class="row-delete" onclick="this.parentElement.remove()">&times;</span></p>
+
+    <p>Should you have any questions, please feel free to reach out to us.<span class="row-delete" onclick="this.parentElement.remove()">&times;</span></p>
+
+    <p class="confidential-note">This letter and its contents are confidential and intended solely for the named recipient.<span class="row-delete" onclick="this.parentElement.remove()">&times;</span></p>
+
+    <div class="add-body-line" onclick="addBodyLine()">+ Add paragraph</div>
+
+    <div class="closing" id="closingBlock">
+      Yours sincerely,
+      <div class="signature-area" id="sigArea"></div>
+      <div class="signature-divider"></div>
+      <div class="signature-name" id="sigPrintedName"><span class="sig-name-cap">B</span>ishal <span class="sig-name-cap">P</span>aul</div>
+      <div class="signature-role">CEO, ERUDIENCE LTD</div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <div class="footer-item">
+      <div class="footer-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 3.5H4.8A1.8 1.8 0 0 0 3 5.3C3 13.4 10.6 21 18.7 21a1.8 1.8 0 0 0 1.8-1.8v-3.4l-4.2-1.4-2 2a15 15 0 0 1-5.4-5.4l2-2z"/></svg></div>
+      <div class="footer-text">+44 7848 146483<br><span class="phone">+88 01788358314</span></div>
+      <div class="row-delete" onclick="this.parentElement.remove()">&times;</div>
+    </div>
+    <div class="footer-item">
+      <div class="footer-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9.5"/><ellipse cx="12" cy="12" rx="4.2" ry="9.5"/><path d="M2.5 12h19M4.2 6.5h15.6M4.2 17.5h15.6"/></svg></div>
+      <div class="footer-text">erudience.com<br>bishal@erudience.com</div>
+      <div class="row-delete" onclick="this.parentElement.remove()">&times;</div>
+    </div>
+    <div class="footer-item">
+      <div class="footer-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 22C12 22 19.5 15.2 19.5 9.5A7.5 7.5 0 0 0 4.5 9.5C4.5 15.2 12 22 12 22Z"/><circle cx="12" cy="9.5" r="2.75"/></svg></div>
+      <div class="footer-text">Head Office: Sylhet, Bangladesh<br>Req-283 City Rd, London, UK</div>
+      <div class="row-delete" onclick="this.parentElement.remove()">&times;</div>
+    </div>
+    <div class="add-footer-item" onclick="addFooterItem()">+ Add item</div>
+  </div>
+
+</div>
+
+    </div>
+  </div>
+</div>
+
+<div class="edit-format-bar" id="editFormatBar">
+  <button type="button" id="fmtBold" title="Bold"><b>B</b></button>
+  <button type="button" id="fmtItalic" title="Italic"><i>I</i></button>
+  <button type="button" id="fmtUnderline" title="Underline"><u>U</u></button>
+  <select id="fmtFont" title="Font family">
+    <option value="Inter">Inter</option>
+    <option value="Poppins">Poppins</option>
+    <option value="'Public Sans'">Public Sans</option>
+    <option value="'Dancing Script'">Dancing Script</option>
+    <option value="Georgia">Georgia</option>
+    <option value="Arial">Arial</option>
+  </select>
+  <select id="fmtSize" title="Font size">
+    <option value="1">Small</option>
+    <option value="3" selected>Normal</option>
+    <option value="5">Large</option>
+    <option value="7">X-Large</option>
+  </select>
+  <input type="color" id="fmtColor" title="Text colour" value="#1c2a25">
+  <button type="button" id="fmtDelete" title="Delete selected line">Delete line</button>
+</div>
+
+<input type="file" id="logoFileInput" accept="image/*" style="display:none;">
+
+
+<!-- ============ DESIGN CUSTOMIZER (screen only, hidden in print) ============ -->
+
+
+<button id="dzToggle" onclick="dzToggleDrawer()">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2H22l-6 4.4 2.3 7.1L12 16.3l-6.3 4.4 2.3-7.1-6-4.4h7.6z"/></svg>
+  Design
+</button>
+
+<div id="dzDrawer">
+  <div class="dz-head">
+    <div class="dz-head-left"><svg class="star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2H22l-6 4.4 2.3 7.1L12 16.3l-6.3 4.4 2.3-7.1-6-4.4h7.6z"/></svg><span>Design Customizer</span></div>
+    <button class="dz-close" onclick="dzToggleDrawer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="dz-body">
+
+    <div class="dz-section pinned open" id="dz-signature">
+      <div class="dz-sec-head" onclick="dzToggleSection('dz-signature')">
+        <div class="dz-sec-head-left"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg><span>Signature</span></div>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="dz-sec-content"><div class="dz-sec-inner">
+        <div class="sig-tools-row">
+          <label><input type="radio" name="sigMode" value="type" id="sigModeType" checked> Type name</label>
+          <label><input type="radio" name="sigMode" value="upload" id="sigModeUpload"> Upload signature image</label>
+        </div>
+        <div class="sig-tools-row" id="sigTypeControls">
+          <input type="text" id="sigNameInput" value="" placeholder="Type signer's name">
+          <select id="sigFontSelect">
+            <option value="'Dancing Script', cursive" selected>Dancing Script</option>
+            <option value="'Sacramento', cursive">Sacramento</option>
+            <option value="'Great Vibes', cursive">Great Vibes</option>
+            <option value="'Pacifico', cursive">Pacifico</option>
+            <option value="'Caveat', cursive">Caveat</option>
+          </select>
+          <input type="range" id="sigSizeInput" min="5" max="60" value="44">
+          <span class="sig-size-value" id="sigSizeValue">44px</span>
+          <select id="sigAlignSelect">
+            <option value="left" selected>Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+        <div class="sig-tools-row" id="sigStyleControls">
+          <label><input type="checkbox" id="sigBoldToggle"> Bold</label>
+          <label><input type="checkbox" id="sigItalicToggle"> Italic</label>
+          <label><input type="checkbox" id="sigUnderlineToggle"> Underline</label>
+          <label>Colour <input type="color" id="sigColorInput" value="#0c2e23"></label>
+        </div>
+        <div class="sig-tools-row" id="sigUploadControls" style="display:none;">
+          <input type="file" id="sigFileInput" accept="image/*">
+        </div>
+      </div></div>
+    </div>
+
+    <div class="dz-section" id="dz-textformat">
+      <div class="dz-sec-head" onclick="dzToggleSection('dz-textformat')">
+        <div class="dz-sec-head-left"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Text Formatting</span></div>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="dz-sec-content"><div class="dz-sec-inner">
+        <div class="tf-toolbar">
+          <div class="tf-btn" data-cmd="bold" onclick="tfExec('bold', this)"><b>B</b></div>
+          <div class="tf-btn" data-cmd="italic" onclick="tfExec('italic', this)"><i>I</i></div>
+          <div class="tf-btn" data-cmd="underline" onclick="tfShowPanel('underline', this)"><u>U</u></div>
+          <div class="tf-btn" id="tfHeadingBtn" onclick="tfToggleHeading(this)" title="Heading">H</div>
+          <div class="tf-btn dz-role-locked" data-cmd="strikeThrough" onclick="tfExec('strikeThrough', this)"><s>S</s></div>
+          <div class="tf-btn dz-role-locked" data-cmd="superscript" onclick="tfExec('superscript', this)">x&sup2;</div>
+          <div class="tf-btn dz-role-locked" data-cmd="subscript" onclick="tfExec('subscript', this)">x&#8322;</div>
+          <div class="tf-sep"></div>
+          <div class="tf-btn" onclick="tfShowPanel('fontcolor', this)">A</div>
+          <div class="tf-btn dz-role-locked" onclick="tfShowPanel('highlight', this)">&#128397;</div>
+          <div class="tf-sep"></div>
+          <div class="tf-btn dz-role-locked" onclick="tfShowPanel('align', this)">&equiv;</div>
+          <div class="tf-btn dz-role-locked" onclick="tfExec('insertUnorderedList', this)">&bull;&equiv;</div>
+          <div class="tf-btn dz-role-locked" onclick="tfExec('insertOrderedList', this)">1&equiv;</div>
+          <div class="tf-sep"></div>
+          <div class="tf-btn dz-role-locked" onclick="tfShowPanel('case', this)">Aa</div>
+        </div>
+        <div class="tf-panel" id="tfPanel"></div>
+
+        <div class="dz-ctrl dz-role-locked" style="margin-top:14px;"><span class="dz-ctrl-label">LINE SPACING (whole letter)</span>
+          <input type="range" min="1.2" max="2" step="0.05" value="1.62" oninput="dzSetVar('--body-line-height',this.value)" style="width:100%;">
+        </div>
+        <div class="dz-ctrl dz-role-locked"><span class="dz-ctrl-label">BORDER (whole letter)</span><div class="dz-aligngroup">
+          <div class="dz-alignbtn sel" onclick="dzSetVar('--body-border-style','none',this)">None</div>
+          <div class="dz-alignbtn" onclick="dzSetVar('--body-border-style','solid',this)">Solid</div>
+          <div class="dz-alignbtn" onclick="dzSetVar('--body-border-style','dashed',this)">Dashed</div>
+        </div></div>
+        <div class="dz-resetlink" onclick="dzResetSection('textformat')">↺ Reset text formatting to default</div>
+      </div></div>
+    </div>
+
+    <div class="dz-section open" id="dz-header">
+      <div class="dz-sec-head" onclick="dzToggleSection('dz-header')">
+        <div class="dz-sec-head-left"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="6" rx="1"/><rect x="3" y="13" width="18" height="8" rx="1"/></svg><span>Header</span></div>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="dz-sec-content"><div class="dz-sec-inner">
+        <div class="dz-ctrl"><span class="dz-ctrl-label">BACKGROUND COLOUR</span><div class="dz-swatches">
+          <div class="dz-swatch sel" style="background:#0c2e23" onclick="dzSetVar('--header-bg','#0c2e23',this)"></div>
+          <div class="dz-swatch" style="background:#1a1a1a" onclick="dzSetVar('--header-bg','#1a1a1a',this)"></div>
+          <div class="dz-swatch" style="background:#0c3d5c" onclick="dzSetVar('--header-bg','#0c3d5c',this)"></div>
+          <div class="dz-swatch" style="background:#5c2c0c" onclick="dzSetVar('--header-bg','#5c2c0c',this)"></div>
+          <input type="color" class="dz-swatch" value="#0c2e23" onchange="dzSetVar('--header-bg',this.value,this)" style="padding:0;border:1px solid #e3e8e5">
+        </div></div>
+        <div class="dz-ctrl"><span class="dz-ctrl-label">BRAND NAME FONT</span>
+          <select class="dz-select" onchange="dzSetVar('--header-font',this.value)">
+            <option value="'Poppins',sans-serif">Poppins (current)</option>
+            <option value="'Public Sans',sans-serif">Public Sans</option>
+            <option value="Georgia,serif">Georgia (serif)</option>
+            <option value="'Inter',sans-serif">Inter</option>
+          </select>
+        </div>
+        <div class="dz-ctrl"><span class="dz-ctrl-label">TITLE TEXT ALIGN</span><div class="dz-aligngroup">
+          <div class="dz-alignbtn" onclick="dzSetVar('--header-align','flex-start',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h13"/></svg></div>
+          <div class="dz-alignbtn" onclick="dzSetVar('--header-align','center',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M5.5 18h13"/></svg></div>
+          <div class="dz-alignbtn sel" onclick="dzSetVar('--header-align','flex-end',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M10 12h10M7 18h13"/></svg></div>
+        </div></div>
+        <div class="dz-ctrl"><span class="dz-ctrl-label">TITLE FONT</span>
+          <select class="dz-select" onchange="dzSetVar('--title-font',this.value)">
+            <option value="'Public Sans', sans-serif">Public Sans (current)</option>
+            <option value="'Poppins',sans-serif">Poppins</option>
+            <option value="Georgia,serif">Georgia</option>
+            <option value="'Inter',sans-serif">Inter</option>
+          </select>
+        </div>
+        <div class="dz-ctrl"><span class="dz-ctrl-label">TITLE COLOUR</span><div class="dz-swatches">
+          <div class="dz-swatch sel" style="background:#0c7a52" onclick="dzSetVar('--title-color','#0c7a52',this)"></div>
+          <div class="dz-swatch" style="background:#0c2e23" onclick="dzSetVar('--title-color','#0c2e23',this)"></div>
+          <div class="dz-swatch" style="background:#c0392b" onclick="dzSetVar('--title-color','#c0392b',this)"></div>
+          <input type="color" class="dz-swatch" value="#0c7a52" onchange="dzSetVar('--title-color',this.value,this)" style="padding:0;border:1px solid #e3e8e5">
+        </div></div>
+        <div class="dz-ctrl"><span class="dz-ctrl-label">CONTACT TEXT COLOUR</span><div class="dz-swatches">
+          <div class="dz-swatch sel" style="background:#9fd0b8" onclick="dzSetVar('--contact-text-color','#9fd0b8',this)"></div>
+          <div class="dz-swatch" style="background:#ffffff;border:1px solid #ddd" onclick="dzSetVar('--contact-text-color','#ffffff',this)"></div>
+          <div class="dz-swatch" style="background:#d7f5e6" onclick="dzSetVar('--contact-text-color','#d7f5e6',this)"></div>
+          <input type="color" class="dz-swatch" value="#9fd0b8" onchange="dzSetVar('--contact-text-color',this.value,this)" style="padding:0;border:1px solid #e3e8e5">
+        </div></div>
+        <div class="dz-ctrl"><span class="dz-ctrl-label">PHONE PILL BACKGROUND</span><div class="dz-swatches">
+          <div class="dz-swatch sel" style="background:#00e08a" onclick="dzSetVar('--phone-pill-bg','#00e08a',this)"></div>
+          <div class="dz-swatch" style="background:#ffffff;border:1px solid #ddd" onclick="dzSetVar('--phone-pill-bg','#ffffff',this)"></div>
+          <div class="dz-swatch" style="background:#0c3d5c" onclick="dzSetVar('--phone-pill-bg','#0c3d5c',this)"></div>
+          <input type="color" class="dz-swatch" value="#00e08a" onchange="dzSetVar('--phone-pill-bg',this.value,this)" style="padding:0;border:1px solid #e3e8e5">
+        </div></div>
+        <div class="dz-resetlink" onclick="dzResetSection('header')">↺ Reset header to default</div>
+      </div></div>
+    </div>
+
+    <div class="dz-section" id="dz-body">
+      <div class="dz-sec-head" onclick="dzToggleSection('dz-body')">
+        <div class="dz-sec-head-left"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Body Text</span></div>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="dz-sec-content"><div class="dz-sec-inner">
+        <div class="dz-ctrl"><span class="dz-ctrl-label">FONT FAMILY</span>
+          <select class="dz-select" onchange="dzSetVar('--body-font',this.value)">
+            <option value="'Inter', Arial, sans-serif">Inter (current)</option>
+            <option value="'Public Sans', sans-serif">Public Sans</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="Arial, sans-serif">Arial</option>
+          </select>
+        </div>
+        <div class="dz-ctrl"><span class="dz-ctrl-label">HIGHLIGHT QUOTE BACKGROUND</span><div class="dz-swatches">
+          <div class="dz-swatch sel" style="background:#f4fbf7" onclick="dzSetVar('--pullquote-bg','#f4fbf7',this)"></div>
+          <div class="dz-swatch" style="background:#fff8e6" onclick="dzSetVar('--pullquote-bg','#fff8e6',this)"></div>
+          <div class="dz-swatch" style="background:#f0f4ff" onclick="dzSetVar('--pullquote-bg','#f0f4ff',this)"></div>
+          <input type="color" class="dz-swatch" value="#f4fbf7" onchange="dzSetVar('--pullquote-bg',this.value,this)" style="padding:0;border:1px solid #e3e8e5">
+        </div></div>
+        <div class="dz-resetlink" onclick="dzResetSection('body')">↺ Reset body to default</div>
+      </div></div>
+    </div>
+
+    <div class="dz-section" id="dz-details">
+      <div class="dz-sec-head" onclick="dzToggleSection('dz-details')">
+        <div class="dz-sec-head-left"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg><span>Employment Details Box</span></div>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="dz-sec-content"><div class="dz-sec-inner">
+        <div class="dz-ctrl"><span class="dz-ctrl-label">BACKGROUND COLOUR</span><div class="dz-swatches">
+          <div class="dz-swatch sel" style="background:#f6fbf8" onclick="dzSetVar('--details-bg','#f6fbf8',this)"></div>
+          <div class="dz-swatch" style="background:#ffffff;border:1px solid #ddd" onclick="dzSetVar('--details-bg','#ffffff',this)"></div>
+          <div class="dz-swatch" style="background:#fafafa" onclick="dzSetVar('--details-bg','#fafafa',this)"></div>
+          <input type="color" class="dz-swatch" value="#f6fbf8" onchange="dzSetVar('--details-bg',this.value,this)" style="padding:0;border:1px solid #e3e8e5">
+        </div></div>
+        <div class="dz-resetlink" onclick="dzResetSection('details')">↺ Reset details box to default</div>
+      </div></div>
+    </div>
+
+    <div class="dz-section" id="dz-footer">
+      <div class="dz-sec-head" onclick="dzToggleSection('dz-footer')">
+        <div class="dz-sec-head-left"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="15" width="18" height="6" rx="1"/><path d="M7 15V9M17 15V6"/></svg><span>Footer</span></div>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="dz-sec-content"><div class="dz-sec-inner">
+        <div class="dz-ctrl"><span class="dz-ctrl-label">BACKGROUND COLOUR</span><div class="dz-swatches">
+          <div class="dz-swatch sel" style="background:#0c2e23" onclick="dzSetVar('--footer-bg','#0c2e23',this)"></div>
+          <div class="dz-swatch" style="background:#1a1a1a" onclick="dzSetVar('--footer-bg','#1a1a1a',this)"></div>
+          <div class="dz-swatch" style="background:#0c3d5c" onclick="dzSetVar('--footer-bg','#0c3d5c',this)"></div>
+          <input type="color" class="dz-swatch" value="#0c2e23" onchange="dzSetVar('--footer-bg',this.value,this)" style="padding:0;border:1px solid #e3e8e5">
+        </div></div>
+        <div class="dz-ctrl"><span class="dz-ctrl-label">FOOTER TEXT COLOUR</span><div class="dz-swatches">
+          <div class="dz-swatch sel" style="background:#9fd0b8" onclick="dzSetVar('--footer-text-color','#9fd0b8',this)"></div>
+          <div class="dz-swatch" style="background:#ffffff;border:1px solid #ddd" onclick="dzSetVar('--footer-text-color','#ffffff',this)"></div>
+          <div class="dz-swatch" style="background:#d7f5e6" onclick="dzSetVar('--footer-text-color','#d7f5e6',this)"></div>
+          <input type="color" class="dz-swatch" value="#9fd0b8" onchange="dzSetVar('--footer-text-color',this.value,this)" style="padding:0;border:1px solid #e3e8e5">
+        </div></div>
+        <div class="dz-ctrl"><span class="dz-ctrl-label">FOOTER ICON BACKGROUND</span><div class="dz-swatches">
+          <div class="dz-swatch sel" style="background:#00e08a" onclick="dzSetVar('--footer-icon-bg','#00e08a',this)"></div>
+          <div class="dz-swatch" style="background:#ffffff;border:1px solid #ddd" onclick="dzSetVar('--footer-icon-bg','#ffffff',this)"></div>
+          <div class="dz-swatch" style="background:#0c3d5c" onclick="dzSetVar('--footer-icon-bg','#0c3d5c',this)"></div>
+          <input type="color" class="dz-swatch" value="#00e08a" onchange="dzSetVar('--footer-icon-bg',this.value,this)" style="padding:0;border:1px solid #e3e8e5">
+        </div></div>
+        <div class="dz-ctrl"><span class="dz-ctrl-label">FOOTER FONT</span>
+          <select class="dz-select" onchange="dzSetVar('--footer-font',this.value)">
+            <option value="'Inter', Arial, sans-serif">Inter (current)</option>
+            <option value="'Public Sans', sans-serif">Public Sans</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="'Poppins',sans-serif">Poppins</option>
+          </select>
+        </div>
+        <div class="dz-resetlink" onclick="dzResetSection('footer')">↺ Reset footer to default</div>
+      </div></div>
+    </div>
+
+    <div class="dz-section" id="dz-icons">
+      <div class="dz-sec-head" onclick="dzToggleSection('dz-icons')">
+        <div class="dz-sec-head-left"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg><span>Icons</span></div>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="dz-sec-content"><div class="dz-sec-inner">
+        <div class="dz-ctrl"><span class="dz-ctrl-label">HEADER ICONS</span>
+          <div class="dz-icon-grid" id="dzHeaderIcons"></div>
+        </div>
+        <div class="dz-ctrl"><span class="dz-ctrl-label">FOOTER ICONS</span>
+          <div class="dz-icon-grid" id="dzFooterIcons"></div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</div>
+
+
+<div class="icon-picker-overlay" id="iconPickerOverlay">
+  <div class="icon-picker">
+    <div class="ip-side">
+      <div class="ip-cat on" data-cat="all">All <span id="ipCountAll"></span></div>
+      <div id="ipCatList"><!-- one .ip-cat per category, populated by JS from CATEGORIES --></div>
+    </div>
+    <div class="ip-main">
+      <div class="ip-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="ipSearchInput" placeholder="Search icons...">
+      </div>
+      <div class="ip-grid" id="ipGrid"><!-- populated by JS --></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TEMPLATE CUSTOMIZE — full-screen mode ============ -->
+<div class="tc-mode" id="templateCustomizeMode">
+  <div class="tc-topbar">
+    <div class="tc-exit" id="tcExitBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>Exit Customizer</div>
+    <div class="tc-title">Customizing: <span id="tcDocName">Offer Letter</span></div>
+    <div class="tc-hide" id="tcHidePanelBtn">Hide Panel</div>
+    <div class="tc-apply" id="tcApplyBtn">Apply Changes</div>
+  </div>
+  <div class="tc-body">
+    <div class="tc-panel" id="tcPanel">
+      <div class="tc-panel-header">
+        <div class="tc-panel-brand"><img src="data:image/png;base64,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" alt="E"><span>Customizer</span></div>
+        <div class="sb-collapse-btn" id="tcCollapseBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="tc-sec on" data-tc-sec="header">Header</div>
+      <div class="tc-sec" data-tc-sec="signature">Signature</div>
+      <div class="tc-sec" data-tc-sec="textformat">Text Formatting</div>
+      <div class="tc-sec" data-tc-sec="body">Body Text</div>
+      <div class="tc-sec" data-tc-sec="details">Employment Details Box</div>
+      <div class="tc-sec" data-tc-sec="footer">Footer</div>
+      <div class="tc-sec" data-tc-sec="icons">Icons</div>
+    </div>
+    <div class="tc-preview-area" id="tcPreviewArea"></div>
+  </div>
+</div>
+
+<script src="sidebar.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

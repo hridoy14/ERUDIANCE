@@ -1,0 +1,244 @@
+/* Hide customizer UI when printing (this rule lives outside brand.css's
+   print block to avoid pulling in its Offer-Letter-specific print overrides) */
+@media print{
+  #dzToggle, #dzDrawer, #iconPickerOverlay, #templateCustomizeMode{ display:none !important; }
+  .app-toolbar, .sb-hamburger{ display:none !important; }
+}
+
+/* ---- Shared top toolbar (title + Print/Save as PDF + Reset) ---- */
+.app-toolbar{
+  background:#fff; border-bottom:1px solid #e3e8e5; padding:14px 22px;
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+}
+.app-doctitle{ font-family:'Poppins',sans-serif; font-weight:700; font-size:14px; color:var(--dark); margin-right:auto; }
+.app-toolbar button{
+  font-family:'Inter',sans-serif; font-weight:600; font-size:13px;
+  padding:10px 22px; border-radius:6px; border:none; cursor:pointer;
+}
+.btn-print{ background:var(--dark); color:#fff; }
+.btn-print:hover{ background:#0a2419; }
+.btn-reset{ background:#fff; color:#c0392b; border:1.5px solid #c0392b !important; }
+.btn-reset:hover{ background:#fdf1f0; }
+
+.sb-hamburger{ display:none; }
+@media screen and (max-width:900px){
+  .sb-hamburger{ display:flex; align-items:center; justify-content:center; width:34px; height:34px; border:none; background:var(--dark); color:#fff; border-radius:8px; margin:12px 0 0 14px; cursor:pointer; }
+  .app-sidebar{ position:fixed; left:-220px; top:0; bottom:0; z-index:200; transition:left .25s ease; box-shadow:4px 0 20px rgba(0,0,0,0.2); }
+  .app-sidebar.sb-open{ left:0; }
+}
+
+/* ---- Design Customizer styles ---- */
+  #dzToggle{
+    position:fixed; bottom:24px; right:24px; z-index:500;
+    background:#0c2e23; color:#fff; border:none; border-radius:30px;
+    padding:12px 20px; font-family:Inter,Arial,sans-serif; font-weight:700; font-size:13px;
+    display:flex; align-items:center; gap:8px; cursor:pointer;
+    box-shadow:0 6px 20px rgba(12,46,35,0.35); transition:transform .15s ease, box-shadow .15s ease;
+  }
+  #dzToggle:hover{ transform:translateY(-2px); box-shadow:0 10px 26px rgba(12,46,35,0.4); }
+  #dzToggle svg{ width:15px; height:15px; }
+
+  #dzDrawer{
+    position:fixed; top:0; right:-320px; width:300px; height:100%; background:#fafcfb;
+    box-shadow:-8px 0 30px rgba(12,46,35,0.18); z-index:600; transition:right .28s cubic-bezier(.25,.1,.25,1);
+    display:flex; flex-direction:column; font-family:Inter,Arial,sans-serif;
+  }
+  #dzDrawer.open{ right:0; }
+  .dz-head{ padding:16px; border-bottom:1px solid #e3e8e5; display:flex; align-items:center; justify-content:space-between; }
+  .dz-head-left{ display:flex; align-items:center; gap:8px; }
+  .dz-head svg.star{ width:16px; height:16px; color:#0c7a52; }
+  .dz-head span{ font-family:Poppins,sans-serif; font-weight:700; font-size:13px; color:#0c2e23; }
+  .dz-close{ width:26px; height:26px; border-radius:6px; border:none; background:#f2f5f3; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#46564f; }
+  .dz-close svg{ width:13px; height:13px; }
+  .dz-body{ flex:1; overflow-y:auto; }
+
+  .dz-section{ border-bottom:1px solid #e3e8e5; }
+  .dz-sec-head{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; cursor:pointer; user-select:none; }
+  .dz-sec-head:hover{ background:#f2f5f3; }
+  .dz-sec-head-left{ display:flex; align-items:center; gap:9px; }
+  .dz-sec-head svg.icon{ width:15px; height:15px; color:#0c7a52; }
+  .dz-sec-head span{ font-size:12px; font-weight:600; color:#0c2e23; }
+  .dz-sec-head svg.chev{ width:12px; height:12px; color:#46564f; transition:transform .2s ease; }
+  .dz-section.open .dz-sec-head svg.chev{ transform:rotate(180deg); }
+  .dz-sec-content{ max-height:0; overflow:hidden; transition:max-height .25s cubic-bezier(.25,.1,.25,1); background:#fff; }
+  .dz-section.open .dz-sec-content{ max-height:420px; }
+  .dz-sec-inner{ padding:4px 16px 16px; }
+
+  .dz-ctrl{ margin-bottom:12px; }
+  .dz-ctrl-label{ font-size:10px; font-weight:700; color:#46564f; letter-spacing:0.4px; margin-bottom:6px; display:block; }
+  .dz-swatches{ display:flex; gap:6px; flex-wrap:wrap; }
+  .dz-swatch{ width:22px; height:22px; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:all .15s ease; }
+  .dz-swatch.sel{ border-color:#0c2e23; transform:scale(1.1); }
+  .dz-swatch:hover{ transform:scale(1.08); }
+  .dz-select{ width:100%; border:1px solid #e3e8e5; border-radius:6px; padding:6px 8px; font-size:11.5px; color:#0c2e23; background:#fafcfb; outline:none; }
+  .dz-aligngroup{ display:flex; gap:4px; }
+  .dz-alignbtn{ flex:1; display:flex; align-items:center; justify-content:center; padding:6px 0; border:1px solid #e3e8e5; border-radius:6px; cursor:pointer; color:#46564f; }
+  .dz-alignbtn svg{ width:14px; height:14px; }
+  .dz-alignbtn.sel{ border-color:#00e08a; background:#f0fbf6; color:#0c7a52; }
+  .dz-resetlink{ font-size:10px; color:#0c7a52; font-weight:600; cursor:pointer; margin-top:2px; display:inline-block; }
+  .dz-icon-grid{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .dz-icon-thumb{ width:36px; height:36px; border-radius:8px; border:1.5px solid #e3e8e5; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#fafcfb; transition:border-color .15s,background .15s; position:relative; }
+  .dz-icon-thumb:hover{ border-color:#00e08a; background:#f0fbf6; }
+  .dz-icon-thumb svg{ width:20px; height:20px; color:#0c2e23; }
+
+  .dz-section.pinned{ background:#f7fdfa; border-left:3px solid var(--green1); }
+  .dz-section.pinned .dz-sec-head span{ color:var(--green2); }
+
+  .dz-soon{ font-size:8.5px; font-weight:700; background:#f2f5f3; color:#8a9690; padding:2px 6px; border-radius:8px; margin-left:6px; vertical-align:middle; }
+  .dz-alignbtn:disabled{ cursor:not-allowed; opacity:.45; pointer-events:none; background:#fafcfb; }
+  button.dz-alignbtn{ font-family:inherit; font-size:12px; background:#fff; }
+
+  /* Generic "this control is not available to the current role" state -
+     visible so a higher role can see the feature exists, but inert. */
+  body.role-content-editor .dz-role-locked{ opacity:.45; pointer-events:none; }
+  body.role-content-editor .dz-ctrl.dz-role-locked{ position:relative; }
+  body.role-content-editor .dz-ctrl.dz-role-locked::after{
+    content:'Locked'; position:absolute; top:0; right:0; font-size:8px; font-weight:700;
+    color:#a03a3a; background:#fdf1f0; padding:1px 5px; border-radius:6px;
+  }
+
+  /* ---- Text Formatting: compact icon toolbar (V3) ---- */
+  .tf-toolbar{ display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+  .tf-btn{
+    width:26px; height:26px; display:flex; align-items:center; justify-content:center;
+    border:1px solid #e3e8e5; border-radius:5px; cursor:pointer; font-size:12px;
+    color:#46564f; background:#fff; user-select:none; box-sizing:border-box;
+  }
+  .tf-btn:hover{ background:#f2f5f3; }
+  .tf-btn.on, .tf-btn.tf-active{ background:var(--green1); border-color:var(--green1); color:var(--dark); }
+  .tf-sep{ width:1px; height:18px; background:#e3e8e5; margin:0 2px; flex-shrink:0; }
+  .tf-panel:empty{ display:none; }
+  .tf-panel{
+    margin-top:8px; padding:10px; background:#fafcfb; border:1px solid #e3e8e5; border-radius:6px;
+  }
+  .tf-optrow{ display:flex; flex-wrap:wrap; gap:6px; }
+  .tf-opt{
+    padding:5px 10px; border:1px solid #e3e8e5; border-radius:5px; cursor:pointer;
+    font-size:11.5px; color:#46564f; background:#fff; user-select:none;
+  }
+  .tf-opt:hover{ background:#f2f5f3; }
+  .tf-opt.sel{ border-color:var(--green1); background:#f0fbf6; color:#0c7a52; font-weight:600; }
+  .tf-apply-btn{
+    margin-top:10px; font-family:'Inter',sans-serif; font-weight:600; font-size:11.5px;
+    padding:6px 16px; border-radius:6px; border:none; cursor:pointer;
+    background:var(--dark); color:#fff;
+  }
+  .tf-apply-btn:disabled{ background:#c6ccc9; cursor:not-allowed; }
+  .tf-hint{ font-size:10.5px; color:#a03a3a; margin-top:6px; }
+  .tf-panel .dz-ctrl-label{ margin-bottom:6px; }
+
+  .content ul, .content ol{ margin:0 0 16px 0; padding-left:22px; }
+
+  /* ---- Icon Picker (Modern Corporate: sidebar category list) ---- */
+  .icon-picker-overlay{
+    display:none; position:fixed; inset:0; z-index:1000;
+    background:rgba(0,0,0,0.4);
+    align-items:center; justify-content:center;
+  }
+  .icon-picker-overlay.open{ display:flex; }
+  .icon-picker{
+    width:640px; max-width:92vw; height:520px; max-height:86vh;
+    background:#fff; border-radius:10px; box-shadow:0 20px 60px rgba(0,0,0,0.3);
+    display:flex; overflow:hidden; font-family:'Inter',sans-serif;
+  }
+  .ip-side{
+    width:90px; flex-shrink:0; background:#f7f9f8; border-right:1px solid var(--border);
+    overflow-y:auto; padding:10px 0;
+  }
+  .ip-cat{
+    padding:8px 8px; font-size:10px; font-weight:600; color:var(--muted); cursor:pointer;
+    line-height:1.35; word-break:break-word;
+  }
+  .ip-cat span{ display:block; font-size:9px; color:#a8b3ae; font-weight:700; margin-top:1px; }
+  .ip-cat:hover{ background:rgba(0,224,138,0.1); }
+  .ip-cat.on{ background:var(--green1); color:var(--dark); }
+  .ip-cat.on span{ color:var(--dark); opacity:.7; }
+  .ip-main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .ip-search{
+    display:flex; align-items:center; gap:8px; padding:12px 14px; border-bottom:1px solid var(--border);
+  }
+  .ip-search svg{ width:16px; height:16px; color:var(--muted); flex-shrink:0; }
+  .ip-search input{
+    border:none; outline:none; font-family:inherit; font-size:13px; flex:1; color:var(--dark); background:transparent;
+  }
+  .ip-grid{
+    flex:1; overflow-y:auto; padding:14px;
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(52px, 1fr)); gap:8px;
+    align-content:start;
+  }
+  .ip-gi{
+    display:flex; align-items:center; justify-content:center; aspect-ratio:1;
+    border:1.5px solid transparent; border-radius:8px; cursor:pointer; color:var(--dark);
+  }
+  .ip-gi svg{ width:22px; height:22px; }
+  .ip-gi:hover{ background:#f2f5f3; }
+  .ip-gi.sel{ border-color:var(--green1); background:#f0fbf6; }
+  /* The showcase library's icons include a small accent-dot circle with this
+     class - scope it globally (not just inside the picker grid) so it still
+     renders correctly once an icon is actually applied to a header/footer .icon. */
+  .node{ fill:var(--green1); }
+
+  /* ---------- Template Customize sidebar button ---------- */
+  #templateCustomizeBtn{ background:rgba(0,224,138,0.12); color:var(--green1); font-weight:700; border:1px dashed var(--green1); }
+
+  /* ---------- Template Customize — full-screen mode ---------- */
+  .tc-mode{ display:none; position:fixed; inset:0; z-index:1000; background:#eceeec; flex-direction:column; }
+  .tc-mode.open{ display:flex; }
+
+  .tc-topbar{ height:52px; background:var(--dark); display:flex; align-items:center; padding:0 18px; gap:12px; flex-shrink:0; }
+  .tc-exit{ display:flex; align-items:center; gap:6px; color:#fff; font-size:11.5px; font-weight:600; cursor:pointer; padding:6px 10px; border-radius:6px; }
+  .tc-exit:hover{ background:rgba(255,255,255,0.08); }
+  .tc-exit svg{ width:12px; height:12px; }
+  .tc-title{ font-family:'Poppins',sans-serif; font-weight:700; font-size:12px; color:#fff; margin-right:auto; }
+  .tc-hide{ font-size:10.5px; color:#9fd0b8; font-weight:600; border:1px solid rgba(255,255,255,0.15); padding:6px 11px; border-radius:6px; cursor:pointer; background:none; }
+  .tc-hide:hover{ background:rgba(255,255,255,0.06); }
+  .tc-apply{ background:var(--green1); color:var(--dark); border:none; padding:7px 16px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; }
+  .tc-apply:hover{ filter:brightness(1.06); }
+
+  .tc-body{ flex:1; display:flex; overflow:hidden; }
+  .tc-panel{
+    width:260px; background:#fff; border-right:1px solid #e3e8e5; overflow-y:auto; flex-shrink:0;
+    transition:width .32s cubic-bezier(.25,.1,.25,1), opacity .18s ease;
+  }
+  .tc-panel.collapsed{ width:0; opacity:0; overflow:hidden; border:none; }
+
+  .tc-panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 14px; border-bottom:1px solid #e3e8e5;
+  }
+  .tc-panel-brand{
+    display:flex; align-items:center; gap:8px; font-family:'Poppins',sans-serif;
+    font-weight:800; font-size:12px; color:var(--dark); white-space:nowrap; overflow:hidden;
+  }
+  .tc-panel-brand img{ width:20px; height:20px; border-radius:5px; flex-shrink:0; }
+  .tc-panel-brand span{
+    display:inline-block; opacity:1; max-width:120px; overflow:hidden;
+    transition:opacity .15s ease, max-width .28s cubic-bezier(.25,.1,.25,1);
+  }
+  .tc-panel.collapsed .tc-panel-brand span{ opacity:0; max-width:0; transition:opacity .1s ease, max-width .28s cubic-bezier(.25,.1,.25,1); }
+
+  .sb-collapse-btn{
+    width:22px; height:22px; border-radius:6px; flex-shrink:0;
+    background:rgba(0,0,0,0.04); border:1px solid #e3e8e5;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:background .18s ease, border-color .18s ease;
+  }
+  .sb-collapse-btn:hover{ background:rgba(0,224,138,0.12); border-color:rgba(0,224,138,0.4); }
+  .sb-collapse-btn svg{
+    width:12px; height:12px; color:var(--muted); position:relative; left:1px;
+    transition:transform .3s cubic-bezier(.4,0,.2,1), color .18s ease;
+  }
+  .sb-collapse-btn:hover svg{ color:var(--green2); }
+  .tc-panel.collapsed .sb-collapse-btn svg{ transform:rotate(180deg) translateX(-2px); }
+  .tc-panel.collapsed .tc-panel-header{ justify-content:center; padding:12px 6px; }
+
+  .tc-sec{
+    padding:11px 16px; border-bottom:1px solid #e3e8e5; font-size:11px; font-weight:600;
+    color:#46564f; cursor:pointer; white-space:nowrap; overflow:hidden;
+    transition:opacity .15s ease, max-height .28s cubic-bezier(.25,.1,.25,1), padding .28s ease;
+  }
+  .tc-sec:hover{ background:#f7fdfa; color:var(--green2); }
+  .tc-sec.on{ background:#f7fdfa; border-left:3px solid var(--green1); color:var(--green2); }
+  .tc-panel.collapsed .tc-sec{ opacity:0; max-height:0; padding:0; border:none; overflow:hidden; transition:opacity .1s ease, max-height .28s cubic-bezier(.25,.1,.25,1) .05s, padding .28s ease .05s; }
+
+  .tc-preview-area{ flex:1; background:#dde3df; display:flex; justify-content:center; align-items:flex-start; padding:24px; overflow:auto; }
