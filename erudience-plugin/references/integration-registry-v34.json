@@ -1,0 +1,54 @@
+{
+  "version": "3.4.0",
+  "external_writes_default": false,
+  "integrations": [
+    {
+      "name": "linkedin",
+      "state": "NOT_CONFIGURED",
+      "read_only": true,
+      "requires_approval": true
+    },
+    {
+      "name": "supabase",
+      "state": "NOT_CONFIGURED",
+      "read_only": true,
+      "requires_approval": true
+    },
+    {
+      "name": "research",
+      "state": "NOT_CONFIGURED",
+      "read_only": true,
+      "requires_approval": true
+    },
+    {
+      "name": "image_renderer",
+      "state": "NOT_CONFIGURED",
+      "read_only": true,
+      "requires_approval": true
+    },
+    {
+      "name": "scheduler",
+      "state": "NOT_CONFIGURED",
+      "read_only": true,
+      "requires_approval": true
+    },
+    {
+      "name": "analytics",
+      "state": "NOT_CONFIGURED",
+      "read_only": true,
+      "requires_approval": true
+    }
+  ],
+  "stages": [
+    "RESEARCH",
+    "KEYWORDS",
+    "STRATEGY",
+    "DRAFT",
+    "FACT_QA",
+    "SEO_QA",
+    "CREATIVE",
+    "VISUAL_QA",
+    "OWNER_APPROVAL",
+    "DELIVERY"
+  ]
+}
