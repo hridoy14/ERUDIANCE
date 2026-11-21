@@ -1,0 +1,28 @@
+name: Erudience plugin regression
+on:
+  push:
+    paths:
+      - 'erudience-plugin/**'
+      - '.github/workflows/erudience-regression.yml'
+  workflow_dispatch:
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: erudience-plugin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependency
+        run: python -m pip install Pillow
+      - name: Compile Python modules
+        run: python -m compileall -q scripts tests_content_engine.py
+      - name: Run regression suites
+        run: |
+          set -e
+          python -m unittest discover -s scripts -p 'test_*.py' -v
+          python -m unittest tests_content_engine -v
+          python scripts/integration_tests.py -v
