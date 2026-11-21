@@ -1,0 +1,1 @@
+Erudience LinkedIn Content & Image Generation Plugin v3.3.0: 14 modules, 8 capabilities, one master action. Mandatory references/production-contract-v33.md. Read-only by default. Scripts are local acceptance helpers, not proof of live service integration.

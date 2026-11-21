@@ -1,0 +1,18 @@
+{
+  "name": "erudience",
+  "version": "4.9.1",
+  "description": "Erudience seven-post LinkedIn content and image workflow with Sora typography, verified brand policy and optional authentic logo.",
+  "interface": {
+    "displayName": "Erudience LinkedIn Content & Image Generation Plugin",
+    "shortDescription": "One-command branded content and poster production",
+    "longDescription": "Seven independent content-image jobs using one fail-closed controller, optional original logo, website colours and evidence-gated QA.",
+    "developerName": "Erudience",
+    "category": "Other",
+    "capabilities": [],
+    "defaultPrompt": "erudiance_linkdin"
+  },
+  "author": {
+    "name": "Erudience",
+    "email": "contact@erudience.com"
+  }
+}

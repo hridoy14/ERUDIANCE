@@ -1,0 +1,1 @@
+Erudience v3.7.0: strict Sora brand renderer, source-of-truth conflict correction, four tested brand-failure paths, explicit production-runtime contract. No claim of deployed live automation or full image QA. Social OS/LinkedIn writes deferred.
