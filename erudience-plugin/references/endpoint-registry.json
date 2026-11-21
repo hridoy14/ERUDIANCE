@@ -1,0 +1,13 @@
+{
+  "version": "3.0.0",
+  "security": "No hardcoded secrets, no guessed remote URLs, read-only default; explicit owner approval required for writes.",
+  "providers": {
+    "openai": {"base_url": "https://api.openai.com/v1", "endpoint": "/responses", "method": "POST", "status": "DOCUMENTED_PROVIDER_API_NOT_CONNECTED", "credential_env": "OPENAI_API_KEY"},
+    "anthropic": {"base_url": "https://api.anthropic.com", "endpoint": "/v1/messages", "method": "POST", "status": "DOCUMENTED_PROVIDER_API_NOT_CONNECTED", "credential_env": "ANTHROPIC_API_KEY"},
+    "linkedin": {"base_url": null, "endpoint": null, "status": "REQUIRES_APPROVED_API_PRODUCT_AND_SCOPE", "operations": ["read_permitted_analytics", "create_post_only_with_authorization"]},
+    "social_os": {"base_url": null, "endpoint": null, "status": "UNVERIFIED_INTEGRATION", "operations": ["list_calendar", "create_draft", "upload_media", "read_back_draft", "schedule_post", "read_back_schedule", "get_analytics"]},
+    "google_search_console": {"base_url": "https://www.googleapis.com/webmasters/v3", "endpoint": "/sites/{siteUrl}/searchAnalytics/query", "method": "POST", "status": "DOCUMENTED_PROVIDER_API_NOT_CONNECTED", "credential_env": "GOOGLE_OAUTH_TOKEN"},
+    "research": {"base_url": null, "endpoint": null, "status": "CONNECT_AUTHORIZED_RESEARCH_PROVIDER", "operations": ["search_public_sources", "fetch_permitted_page", "capture_provenance"]},
+    "image_renderer": {"base_url": null, "endpoint": null, "status": "LOCAL_SCRIPT_OR_AUTHORIZED_IMAGE_TOOL", "operations": ["render", "inspect", "verify"]}
+  }
+}

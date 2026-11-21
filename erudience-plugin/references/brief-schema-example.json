@@ -1,0 +1,19 @@
+{
+  "content_id": "example-001",
+  "category": "SALES & WORKFLOW AUTOMATION",
+  "headline_lines": ["YOUR CRM CAPTURED", "THE LEAD."],
+  "emphasis": "WHO OWNS THE NEXT STEP?",
+  "support": "Six checks for an accountable enquiry workflow.",
+  "stages": [
+    {"number":"01","title":"CAPTURE","description":"Track every enquiry."},
+    {"number":"02","title":"ACKNOWLEDGE","description":"Confirm receipt and next steps."},
+    {"number":"03","title":"QUALIFY","description":"Collect the details that matter."},
+    {"number":"04","title":"ROUTE","description":"Assign one accountable owner."},
+    {"number":"05","title":"NEXT ACTION","description":"Set a deadline and escalation path."},
+    {"number":"06","title":"OUTCOME","description":"Record what actually happened."}
+  ],
+  "takeaway": "A notification is not a completed follow-up.",
+  "diagnostic": "Can you trace your last five enquiries from capture to outcome?",
+  "cta": "Book your AI consultation",
+  "domain": "erudience.com"
+}
