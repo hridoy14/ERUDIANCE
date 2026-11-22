@@ -1,1 +1,0 @@
-Erudience v4.1.0: 17-stage controller, reviewed handoffs, rollback, 10 unit/integration fixture tests. Live endpoint adapters are NOT included; production readiness BLOCKED until connected and verified. No publishing.

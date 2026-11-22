@@ -2,7 +2,7 @@
 name: erudience
 description: "One-command Erudience LinkedIn content and image production with a single fail-closed controller."
 ---
-# Erudience v4.9.1 — One controller, one policy
+# Erudience v4.9.2 — One controller, one policy
 
 Start by reading `references/brand-policy-current.md` and `references/runtime-and-compatibility-v49.md`. They supersede any conflicting historical logo-required or DM Sans-required documents. Older references are archival and must never override current policy.
 

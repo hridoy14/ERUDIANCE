@@ -1,1 +1,0 @@
-Erudience v3.5 fail-closed production gate and chat vision audit. Adds verified artifact SHA256, independent review, logo/font/palette checks, no external writes, six negative-path tests. This is a safety/architecture update, NOT proof of deployed autonomous runtime. Existing v3.4 files preserved in plugin release.
