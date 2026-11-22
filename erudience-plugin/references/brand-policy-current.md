@@ -1,4 +1,4 @@
-# Current Erudience brand policy — v4.9.1
+# Current Erudience brand policy — v4.9.2
 
 The only machine-readable brand configuration is `references/production-policy-v33.json`. All active controllers, renderers and tests must read the brand values from it; historical policy documents are archival.
 
