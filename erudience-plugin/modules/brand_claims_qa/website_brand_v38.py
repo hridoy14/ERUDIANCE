@@ -1,11 +1,11 @@
-"""Owner-approved website-first brand specification; optional logo, mandatory branding."""
+"""Owner-approved website-first brand specification; optional logo, mandatory branding. Website-verified 2026-11-24: Sora only (Inter/DM Sans appear nowhere on the website), emerald #10B77F."""
 import re
-PALETTE={'paper':'#F6F1E9','ink':'#14120E','soft':'#615B4C','emerald':'#10B981','deep':'#0A6E3E','dark':'#0A100E'}
+PALETTE={'paper':'#F6F1E9','ink':'#14120E','soft':'#615B4C','emerald':'#10B77F','deep':'#0C8D62','dark':'#080C0B','taupe':'#B7B0A0','emerald_light':'#36D399','mint':'#8AE5C4','border':'#21312C','background':'#080C0B','card':'#0F1A16','foreground':'#F9FBFA'}
 HASHTAGS={'#AIAutomation','#WorkflowAutomation','#VoiceAI'}
 BANNED=('revolutionise','unlock','leverage','seamless','cutting-edge','game-changing','supercharge')
 def check(spec):
  errors=[]
- if spec.get('heading_font')!='Inter' or spec.get('body_font')!='DM Sans':errors.append('WEBSITE_FONT_MISMATCH')
+ if spec.get('heading_font')!='Sora' or spec.get('body_font')!='Sora':errors.append('WEBSITE_FONT_MISMATCH')
  if spec.get('palette')!=PALETTE:errors.append('PALETTE_MISMATCH')
  if spec.get('dimensions')!=[1080,1350]:errors.append('DIMENSIONS_MISMATCH')
  if spec.get('brand_name')!='Erudience' or spec.get('footer')!='erudience.com':errors.append('BRAND_IDENTITY_MISSING')
