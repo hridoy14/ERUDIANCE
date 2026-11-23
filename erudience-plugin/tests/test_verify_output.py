@@ -54,5 +54,81 @@ class VerifyOutputTests(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
         self.assertIn("BLOCK", r.stdout)
 
+class InspectImageTests(unittest.TestCase):
+    """Real pixel inspection (D-08/D-21): values are measured from pixels,
+    never from bare boolean inputs. Uses temp dirs only."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+
+    def _poster(self, name="poster.png", size=(1080, 1350), draw_text=True):
+        from PIL import Image, ImageDraw
+        p = self.root / name
+        im = Image.new("RGB", size, (246, 241, 233))
+        if draw_text:
+            d = ImageDraw.Draw(im)
+            d.rectangle((64, 64, 1016, 300), fill=(20, 18, 14))
+            d.text((80, 90), "Five call handling steps", fill=(246, 241, 233))
+            d.text((80, 200), "Answer every enquiry fast", fill=(20, 18, 14))
+            for i in range(5):
+                y = 360 + i * 140
+                d.rectangle((64, y, 1016, y + 110), outline=(180, 170, 150), width=2)
+                d.text((90, y + 30), "Step %d route the enquiry" % (i + 1), fill=(20, 18, 14))
+            d.rectangle((64, 1100, 1016, 1190), fill=(10, 16, 14))
+            d.text((90, 1120), "Keep a person responsible", fill=(246, 241, 233))
+            d.text((64, 1270), "erudience.com", fill=(97, 91, 76))
+        im.save(p)
+        return p
+
+    def test_pass_poster(self):
+        import verify_output
+        r = verify_output.inspect_image(self._poster())
+        self.assertTrue(r["passed"], r)
+        self.assertEqual(r["format"], "PNG")
+        self.assertEqual(r["size"], (1080, 1350))
+        self.assertEqual(r["mode"], "RGB")
+        m = r["measurements"]
+        self.assertGreater(m["ink_coverage"], 0.02)
+        self.assertLess(m["ink_coverage"], 0.85)
+        self.assertEqual(len(m["dominant_colors"]), 5)
+        self.assertGreaterEqual(m["margin_clearance_px"], 0)
+        self.assertTrue(m["mobile_legibility"]["readable_proxy"])
+        self.assertTrue(any(s.startswith("ink_coverage=") for s in r["evidence"]))
+
+    def test_wrong_dimensions_fail(self):
+        import verify_output
+        r = verify_output.inspect_image(self._poster("bad.png", size=(800, 600)))
+        self.assertFalse(r["passed"])
+        self.assertEqual(r["size"], (800, 600))
+
+    def test_blank_fails(self):
+        import verify_output
+        r = verify_output.inspect_image(self._poster("blank.png", draw_text=False))
+        self.assertFalse(r["passed"])
+        self.assertLess(r["measurements"]["ink_coverage"], 0.02)
+
+    def test_missing_file_no_raise(self):
+        import verify_output
+        r = verify_output.inspect_image(self.root / "nope.png")
+        self.assertFalse(r["passed"])
+        self.assertIn("error", r)
+
+    def test_for_gate_topic_text_none(self):
+        import verify_output
+        g = verify_output.inspect_image_for_gate(self._poster())
+        self.assertTrue(g["pixel_inspection"])
+        self.assertTrue(g["mobile_inspection"])
+        self.assertIsNone(g["topic_match"])
+        self.assertIsNone(g["text_match"])
+        self.assertTrue(any("REQUIRES_HUMAN_OR_OCR" in e for e in g["evidence"]))
+
+    def test_for_gate_missing_file(self):
+        import verify_output
+        g = verify_output.inspect_image_for_gate(self.root / "nope.png")
+        self.assertFalse(g["pixel_inspection"])
+        self.assertFalse(g["mobile_inspection"])
+        self.assertIsNone(g["topic_match"])
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
