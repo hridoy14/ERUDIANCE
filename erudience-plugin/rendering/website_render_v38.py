@@ -15,7 +15,7 @@ def render(spec,out):
  if spec.get('logo'):
   p=Path(spec['logo'])
   if not p.is_file() or not spec.get('logo_sha256') or sha(p)!=spec['logo_sha256'] or not spec.get('logo_source'):errors.append('LOGO_UNVERIFIED')
- if spec.get('heading_font')!='Inter' or spec.get('body_font')!='DM Sans':errors.append('FONT_FAMILY_MISMATCH')
+ if spec.get('heading_font')!='Sora' or spec.get('body_font')!='Sora':errors.append('FONT_FAMILY_MISMATCH')
  if spec.get('palette')!=PALETTE:errors.append('PALETTE_MISMATCH')
  if spec.get('brand_name')!='Erudience' or spec.get('footer')!='erudience.com':errors.append('BRAND_IDENTITY_MISSING')
  title=spec.get('headline','')
@@ -58,7 +58,7 @@ def render(spec,out):
  else:d.text((64,1257),'Erudience',font=f(head,30),fill=PALETTE['ink'])
  d.text((795,1265),'erudience.com',font=f(body,21),fill=PALETTE['soft'])
  out=Path(out);out.parent.mkdir(parents=True,exist_ok=True);im.save(out)
- result={'status':'RENDERED_REQUIRES_INDEPENDENT_VISUAL_QA','image_path':str(out),'sha256':sha(out),'logo_included':bool(spec.get('logo')),'fonts':['Inter','DM Sans']}
+ result={'status':'RENDERED_REQUIRES_INDEPENDENT_VISUAL_QA','image_path':str(out),'sha256':sha(out),'logo_included':bool(spec.get('logo')),'fonts':['Sora','Sora']}
  out.with_suffix('.json').write_text(json.dumps(result,indent=2));return result
 if __name__=='__main__':
  ap=argparse.ArgumentParser();ap.add_argument('--spec',required=True);ap.add_argument('--output',required=True);args=ap.parse_args()
