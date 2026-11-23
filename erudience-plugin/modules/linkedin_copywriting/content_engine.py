@@ -76,6 +76,170 @@ def weekly_batch(items, artifacts_by_id, expected=7):
     ready=sum(r['decision']=='READY_FOR_OWNER_REVIEW' for r in results)
     return {'decision':'READY_FOR_OWNER_REVIEW' if ready==expected else 'BLOCKED','ready':ready,'expected':expected,'results':results}
 
+def validate_business_registry(registry):
+    """Validate a business registry (module 01, AG-01) over SUPPLIED data only.
+
+    registry = {'services': [...], 'claims': [...], 'boundaries': [...]}.
+    Each service needs a non-empty name and description; each claim needs
+    non-empty text, source_url and verified_at; no service/claim may fall
+    outside the declared boundaries (checked only when the item declares
+    a 'boundary'). Never invents services or claims. Returns sorted
+    unique error codes (empty list = valid).
+    """
+    errors = []
+    if not isinstance(registry, dict):
+        return ['INVALID_REGISTRY']
+    boundaries = registry.get('boundaries') or []
+    if not isinstance(boundaries, list):
+        boundaries = []
+    for s in registry.get('services') or []:
+        if not isinstance(s, dict):
+            errors.append('INVALID_SERVICE')
+            continue
+        if not isinstance(s.get('name'), str) or not s['name'].strip():
+            errors.append('SERVICE_NAME_REQUIRED')
+        if not isinstance(s.get('description'), str) or not s['description'].strip():
+            errors.append('SERVICE_DESCRIPTION_REQUIRED')
+        boundary = s.get('boundary')
+        if boundary is not None and boundaries and boundary not in boundaries:
+            errors.append('SERVICE_OUTSIDE_BOUNDARY')
+    for c in registry.get('claims') or []:
+        if not isinstance(c, dict):
+            errors.append('INVALID_CLAIM')
+            continue
+        if not isinstance(c.get('text'), str) or not c['text'].strip():
+            errors.append('CLAIM_TEXT_REQUIRED')
+        if not isinstance(c.get('source_url'), str) or not c['source_url'].strip():
+            errors.append('CLAIM_SOURCE_REQUIRED')
+        if not isinstance(c.get('verified_at'), str) or not c['verified_at'].strip():
+            errors.append('CLAIM_VERIFIED_AT_REQUIRED')
+        boundary = c.get('boundary')
+        if boundary is not None and boundaries and boundary not in boundaries:
+            errors.append('CLAIM_OUTSIDE_BOUNDARY')
+    return sorted(set(errors))
+
+def validate_buyer_evidence(evidence):
+    """Validate buyer research evidence (module 03, AG-03) over SUPPLIED data.
+
+    Each evidence item needs non-empty buyer_pain, job_to_be_done,
+    objection and decision_criterion strings plus a source_url.
+    Returns sorted unique error codes (empty list = valid).
+    """
+    if not isinstance(evidence, list):
+        return ['INVALID_EVIDENCE']
+    fields = (('buyer_pain', 'BUYER_PAIN_REQUIRED'),
+              ('job_to_be_done', 'JOB_TO_BE_DONE_REQUIRED'),
+              ('objection', 'OBJECTION_REQUIRED'),
+              ('decision_criterion', 'DECISION_CRITERION_REQUIRED'),
+              ('source_url', 'BUYER_SOURCE_REQUIRED'))
+    errors = []
+    for item in evidence:
+        if not isinstance(item, dict):
+            errors.append('INVALID_EVIDENCE_ITEM')
+            continue
+        for key, code in fields:
+            if not isinstance(item.get(key), str) or not item[key].strip():
+                errors.append(code)
+    return sorted(set(errors))
+
+FUNNEL_STAGES = ('awareness', 'consideration', 'decision', 'retention')
+# CTA mapping per funnel stage (from the existing funnel_stage usage in
+# this module and the strategy docs). cta_type values:
+#   educational   - learn/read/guide, no pitch, destination 'none' or an
+#                   educational page
+#   comparison    - compare options / see how it stacks up
+#   consultation  - book a call to discuss fit
+#   service       - direct service offer / book / buy
+#   demo          - see the product or service demonstrated
+#   support       - help / onboarding for existing customers
+#   referral      - invite / refer another business
+CTA_BY_STAGE = {
+    'awareness': {'educational'},
+    'consideration': {'educational', 'comparison', 'consultation'},
+    'decision': {'service', 'consultation', 'demo'},
+    'retention': {'service', 'support', 'referral', 'educational'},
+}
+
+def _infer_cta_type(item):
+    """Infer cta_type from an explicit field, else from cta_destination."""
+    cta_type = item.get('cta_type')
+    if isinstance(cta_type, str) and cta_type.strip():
+        return cta_type.strip()
+    dest = item.get('cta_destination')
+    if not isinstance(dest, str) or not dest.strip() or dest.strip() == 'none':
+        return 'educational'
+    url = dest.strip().casefold()
+    if any(k in url for k in ('/support', '/help', '/onboard')):
+        return 'support'
+    if any(k in url for k in ('/services', '/service', '/book', '/contact', '/demo', '/pricing', '/buy', '/checkout')):
+        return 'service'
+    return 'educational'
+
+def plan_funnel(items):
+    """Plan/validate a funnel allocation (module 07, AG-09).
+
+    Each item needs funnel_stage in FUNNEL_STAGES plus a non-empty cta
+    and cta_destination (a URL or 'none'). The CTA type (explicit
+    'cta_type', else inferred from cta_destination) must be allowed for
+    the item's stage per CTA_BY_STAGE. Returns
+    {'status': 'PASS'|'BLOCKED', 'errors': [...],
+     'allocation': {stage: count}}.
+    """
+    errors = []
+    allocation = {stage: 0 for stage in FUNNEL_STAGES}
+    if not isinstance(items, list):
+        return {'status': 'BLOCKED', 'errors': ['INVALID_FUNNEL_ITEMS'], 'allocation': allocation}
+    for item in items:
+        if not isinstance(item, dict):
+            errors.append('INVALID_FUNNEL_ITEM')
+            continue
+        stage = item.get('funnel_stage')
+        if stage not in FUNNEL_STAGES:
+            errors.append('INVALID_FUNNEL_STAGE')
+            continue
+        allocation[stage] += 1
+        if not isinstance(item.get('cta'), str) or not item['cta'].strip():
+            errors.append('CTA_REQUIRED')
+        if not isinstance(item.get('cta_destination'), str) or not item['cta_destination'].strip():
+            errors.append('CTA_DESTINATION_REQUIRED')
+            continue
+        cta_type = _infer_cta_type(item)
+        if cta_type not in CTA_BY_STAGE[stage]:
+            errors.append('CTA_STAGE_MISMATCH')
+    return {'status': 'PASS' if not errors else 'BLOCKED',
+            'errors': sorted(set(errors)), 'allocation': allocation}
+
+def lock_content(content):
+    """Lock content (module 08, AG-10): validate and return a locked record.
+
+    Returns {'content_id', 'topic', 'caption', 'keywords', 'poster_text',
+    'content_hash'} where content_hash is the SHA-256 of the canonical
+    JSON of caption + keywords + poster_text. Raises GateError on
+    missing/invalid fields. A changed caption, keyword or poster line
+    changes the hash, so a later mismatch is detectable.
+    """
+    if not isinstance(content, dict):
+        raise GateError('INVALID_CONTENT')
+    for key in ('content_id', 'topic', 'caption'):
+        if not isinstance(content.get(key), str) or not content[key].strip():
+            raise GateError('LOCK_MISSING:' + key)
+    keywords = content.get('keywords')
+    if not isinstance(keywords, list) or not keywords or not all(isinstance(k, str) and k.strip() for k in keywords):
+        raise GateError('LOCK_INVALID_KEYWORDS')
+    poster_text = content.get('poster_text')
+    if not isinstance(poster_text, dict):
+        raise GateError('LOCK_INVALID_POSTER_TEXT')
+    for key in ('headline', 'footer'):
+        if not isinstance(poster_text.get(key), str) or not poster_text[key].strip():
+            raise GateError('LOCK_MISSING_POSTER:' + key)
+    locked = {'content_id': content['content_id'], 'topic': content['topic'],
+              'caption': content['caption'], 'keywords': list(keywords),
+              'poster_text': dict(poster_text)}
+    locked['content_hash'] = sha({'caption': locked['caption'],
+                                  'keywords': locked['keywords'],
+                                  'poster_text': locked['poster_text']})
+    return locked
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--input',required=True);p.add_argument('--artifacts');p.add_argument('--mode',choices=['gate','calendar','weekly'],default='gate');p.add_argument('--start');p.add_argument('--days',type=int,default=30);p.add_argument('--expected',type=int,default=7)
     a=p.parse_args(); obj=json.loads(Path(a.input).read_text()); artifacts=json.loads(Path(a.artifacts).read_text()) if a.artifacts else {}
