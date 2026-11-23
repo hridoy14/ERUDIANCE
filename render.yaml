@@ -1,0 +1,17 @@
+services:
+  # Erudiance Automation MCP (Streamable HTTP) — Claude custom connector.
+  # Deploy: connect this repo on Render, then set ERUDIANCE_API_KEY in
+  # the Render dashboard (same key goes into the Claude custom connector
+  # as the X-Api-Key request header). Free plan: disk is ephemeral, so
+  # job state and stored templates do NOT survive a restart/redeploy.
+  - type: web
+    name: erudiance-mcp-http
+    env: python
+    plan: free
+    buildCommand: "echo 'stdlib only, nothing to build'"
+    startCommand: python erudience-plugin/server/mcp_http.py
+    envVars:
+      - key: ERUDIANCE_API_KEY
+        sync: false
+      - key: ERUDIANCE_STATE_DIR
+        value: /tmp/erudiance-state
