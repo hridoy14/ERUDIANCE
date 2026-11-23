@@ -251,6 +251,22 @@ class DispatchTests(unittest.TestCase):
         self.assertTrue((self.root / "manifest.json").is_file())
         for i in range(1, 8):
             self.assertTrue((self.root / ("ER-C1-%03d.json" % i)).is_file())
+    def test_dispatch_start_auto_topics(self):
+        import importlib
+        sys.modules.pop("batch_guard_v45", None)
+        try:
+            importlib.import_module("batch_guard_v45")
+        except Exception as e:
+            self.skipTest("real batch_guard_v45 not importable: %s" % e)
+        try:
+            out = dispatch_command("erudiance_linkdin", {"action": "START", "cycle": "C1"}, str(self.root), owner="op-1")
+        finally:
+            _install_fake_module(self, "batch_guard_v45", _fake_batch_guard_module())
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(out["status"], "STARTED")
+        self.assertTrue((self.root / "manifest.json").is_file())
+        for i in range(1, 8):
+            self.assertTrue((self.root / ("ER-C1-%03d.json" % i)).is_file())
     def test_dispatch_start_bad_topics(self):
         out = dispatch_command("erudiance_linkdin", {"action": "START", "topics": ["only", "two"], "cycle": "C1"}, str(self.root), owner="op-1")
         self.assertFalse(out["ok"])
@@ -480,6 +496,20 @@ class ChatGPTOpsTests(unittest.TestCase):
         self.assertEqual(out["error"], "INVALID_INPUT")
     def test_op_start_workflow(self):
         out = op_start_workflow({"topics": list(_TOPICS), "cycle": "C1", "state_dir": str(self.root), "operator": "op-1"})
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(out["operation"], "start_workflow")
+        self.assertTrue((self.root / "manifest.json").is_file())
+    def test_op_start_workflow_auto_topics(self):
+        import importlib
+        sys.modules.pop("batch_guard_v45", None)
+        try:
+            importlib.import_module("batch_guard_v45")
+        except Exception as e:
+            self.skipTest("real batch_guard_v45 not importable: %s" % e)
+        try:
+            out = op_start_workflow({"cycle": "C1", "state_dir": str(self.root), "operator": "op-1"})
+        finally:
+            _install_fake_module(self, "batch_guard_v45", _fake_batch_guard_module())
         self.assertTrue(out["ok"], out)
         self.assertEqual(out["operation"], "start_workflow")
         self.assertTrue((self.root / "manifest.json").is_file())
