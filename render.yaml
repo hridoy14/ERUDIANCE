@@ -8,7 +8,7 @@ services:
     name: erudiance-mcp-http
     env: python
     plan: free
-    buildCommand: "echo 'stdlib only, nothing to build'"
+    buildCommand: "pip install Pillow"  # server imports Pillow (via gate_chain_v41); stdlib alone is NOT enough
     startCommand: python erudience-plugin/server/mcp_http.py
     envVars:
       - key: ERUDIANCE_API_KEY
