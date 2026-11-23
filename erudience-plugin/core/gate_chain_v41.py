@@ -25,6 +25,28 @@ def digest(o):return sha256(json.dumps(o,sort_keys=True,ensure_ascii=False,separ
 def filehash(p):return sha256(Path(p).read_bytes()).hexdigest()
 def require(ok,code):
  if not ok:raise GateFailure(code)
+
+# Live-mode evidence labels for RESEARCH (D-14). Fixture mode never sees these.
+EVIDENCE_LABELS={'LIVE_VERIFIED','CACHED_VERIFIED','USER_SUPPLIED','MODEL_INFERENCE','NOT_VERIFIED'}
+# D-22: recognised kinds of inspection evidence. A kind only proves the file was
+# produced by a named route; it cannot prove a human actually looked.
+INSPECTION_EVIDENCE_KINDS={'human_review','independent_service','pixel_report'}
+
+def _allowed_roots(job):
+ roots=[Path.cwd().resolve(),Path(__file__).resolve().parent.parent]
+ if isinstance(job,dict):
+  for key in ('state_dir','evidence_dir'):
+   v=job.get(key)
+   if v:
+    try:roots.append(Path(v).resolve())
+    except (TypeError,ValueError,OSError):pass
+ return roots
+
+def _confine(path,allowed_roots):
+ """D-15: mirror core/legacy/production_gate.py — a path must resolve under an allowed root."""
+ try:candidate=Path(path).resolve()
+ except (TypeError,ValueError,OSError):return False
+ return any(candidate.is_relative_to(root) for root in allowed_roots)
 @dataclass
 class Adapter:
  name:str
@@ -46,10 +68,41 @@ class Chain:
    require(a.name!=self.records[prev]['adapter'],'SELF_REVIEW_FORBIDDEN')
   if s=='SOURCES':require(out.get('sources') and all(x.get('url') and x.get('verified_at') for x in out['sources']),'SOURCE_PROVENANCE_REQUIRED')
   if self.job.get('mode')!='TEST_FIXTURE':
-   if s in REVIEWS:require(out.get('inspection_evidence_path') and Path(out['inspection_evidence_path']).is_file() and out.get('inspection_evidence_sha256')==filehash(out['inspection_evidence_path']),'INDEPENDENT_INSPECTION_EVIDENCE_REQUIRED')
+   # D-15 path confinement (live mode only): every file path the gate reads must
+   # resolve under cwd, the plugin root, or the job's state/evidence dir.
+   _roots=_allowed_roots(self.job)
+   _paths=[]
+   if out.get('image_path'):_paths.append(out['image_path'])
+   if out.get('inspection_evidence_path'):_paths.append(out['inspection_evidence_path'])
+   _fp=out.get('font_provenance')
+   if isinstance(_fp,dict):
+    for _entry in _fp.values():
+     if isinstance(_entry,dict) and _entry.get('path'):_paths.append(_entry['path'])
+   for _p in _paths:require(_confine(_p,_roots),'PATH_OUTSIDE_ALLOWED_ROOT')
+   if s in REVIEWS:
+    require(out.get('inspection_evidence_path') and Path(out['inspection_evidence_path']).is_file() and out.get('inspection_evidence_sha256')==filehash(out['inspection_evidence_path']),'INDEPENDENT_INSPECTION_EVIDENCE_REQUIRED')
+    # D-22 (partial): the inspection file must be non-empty, and a declared kind
+    # must be a recognised one. Content-substance verification (that a human
+    # actually looked) remains a host responsibility — the gate cannot prove it.
+    require(Path(out['inspection_evidence_path']).stat().st_size>0,'INDEPENDENT_INSPECTION_EVIDENCE_REQUIRED')
+    if out.get('inspection_evidence_kind') is not None:require(out['inspection_evidence_kind'] in INSPECTION_EVIDENCE_KINDS,'INSPECTION_EVIDENCE_KIND_INVALID')
    if s=='SOURCES':require(all(x.get('verified_at')!='fixture-only' and x.get('source_sha256') for x in out['sources']),'LIVE_SOURCE_PROVENANCE_REQUIRED')
+   if s=='RESEARCH':
+    _ev=out.get('research_evidence')
+    require(isinstance(_ev,list) and len(_ev)>0,'RESEARCH_EVIDENCE_REQUIRED')
+    for _item in _ev:
+     require(isinstance(_item,dict) and _item.get('url') and _item.get('verified_at') and _item.get('evidence_label') in EVIDENCE_LABELS,'RESEARCH_EVIDENCE_INVALID')
+     if _item.get('evidence_label')=='LIVE_VERIFIED':require(_item.get('provider') and _item.get('retrieved_at') and _item.get('source_sha256'),'RESEARCH_EVIDENCE_INVALID')
+   if s=='STRATEGY':
+    _st=out.get('strategy')
+    require(isinstance(_st,dict),'STRATEGY_EVIDENCE_REQUIRED')
+    require(_st.get('slots')==7 and _st.get('promotion_count')==1 and not _st.get('unsupported_claim') and not _st.get('unauthorised_write'),'STRATEGY_PROMOTION_INVALID')
+    if _st.get('promotion'):require(isinstance(_st['promotion'],dict) and bool(_st['promotion'].get('employee_requirement')),'STRATEGY_PROMOTION_INVALID')
+   if s=='FINAL_REVIEW':
+    _fc=out.get('final_checklist')
+    require(isinstance(_fc,dict) and all(_fc.get(_k) is True for _k in ('content_locked','image_verified','brand_checked','approval_pending')),'FINAL_CHECKLIST_INCOMPLETE')
    if s=='IMAGE_BUILD':
-    for family in (BRAND['heading'],):
+    for family in {BRAND['heading'],BRAND['body']}:
      entry=out.get('font_provenance',{}).get(family)
      require(isinstance(entry,dict) and entry.get('path') and Path(entry['path']).is_file() and entry.get('sha256')==filehash(entry['path']),'LIVE_FONT_BINARY_NOT_VERIFIED')
   if s=='CONTENT':require(out.get('content_id')==self.job['content_id'],'CONTENT_ID_MISMATCH')
@@ -99,6 +152,11 @@ class Chain:
     self.records[s]={'artifact':out,'hash':digest(out),'adapter':a.name}
     self.trace.append({'stage':s,'event':'PASS','artifact_sha256':digest(out)});i+=1
    except Exception as e:
+    # D-23: a repair_at naming a stage AFTER the current stage is silently
+    # ignored by the old code; record it in the trace, then fall back to the
+    # REPAIR map exactly as before.
+    if isinstance(e,GateFailure) and e.repair_at in STAGES and STAGES.index(e.repair_at)>i:
+     self.trace.append({'stage':s,'event':'REPAIR_AT_IGNORED','reason':'REPAIR_AT_FORWARD'})
     target=e.repair_at if isinstance(e,GateFailure) and e.repair_at in STAGES and STAGES.index(e.repair_at)<=i else REPAIR[s]
     self.revisions+=1;self.trace.append({'stage':s,'event':'FAIL','reason':str(e),'return_to':target,'revision':self.revisions})
     if self.revisions>self.limit:self.status='BLOCKED';break
