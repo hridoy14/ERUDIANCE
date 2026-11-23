@@ -19,7 +19,7 @@ class PipelineTests(unittest.TestCase):
     elif stage=='RESEARCH':a={'evidence':['fixture: CRM lead follow-up workflow'],'source_sha256':rec['SOURCES']['hash']}
     elif stage=='STRATEGY':a={'topic':job['topic'],'research_sha256':rec['RESEARCH']['hash']}
     elif stage=='CONTENT':a={'topic':job['topic'],'caption':'CRM lead follow-up matters for sales teams.','keywords':['CRM lead follow-up'],'strategy_sha256':rec['STRATEGY']['hash']}
-    elif stage=='BRIEF':a={'topic':job['topic'],'content_sha256':rec['CONTENT']['hash'],'poster_text':{'headline':'CRM lead follow-up','steps':['Capture','Assign','Review']},'brand_profile':'website-v38','heading_font':'Inter','body_font':'DM Sans','palette':PALETTE,'brand_name':'Erudience','footer':'erudience.com'}
+    elif stage=='BRIEF':a={'topic':job['topic'],'content_sha256':rec['CONTENT']['hash'],'poster_text':{'headline':'CRM lead follow-up','steps':['Capture','Assign','Review']},'brand_profile':'website-v38','heading_font':'Sora','body_font':'Sora','palette':PALETTE,'brand_name':'Erudience','footer':'erudience.com'}
     elif stage=='RENDER':
      Image.new('RGB',(1080,1350),'#F6F1E9').save(self.path)
      a={'brief_sha256':rec['BRIEF']['hash'],'image_path':self.path,'image_sha256':sha(self.path),'rendered_text_sha256':hashobj(rec['BRIEF']['artifact']['poster_text']),'font_provenance_verified':True}
@@ -60,7 +60,7 @@ class PipelineTests(unittest.TestCase):
   r=Controller(self.job,self.adapters({'CONTENT':bad})).run();self.assertEqual(r['status'],'BLOCKED');self.assertEqual(r['repairs'],4)
  def test_brand_violation_returns_brief(self):
   def bad(a,n):
-   if n==1:a['heading_font']='Sora'
+   if n==1:a['heading_font']='Inter'
    return a
   r=Controller(self.job,self.adapters({'BRIEF':bad})).run();self.assertEqual(r['status'],'TEST_FIXTURE_PASS');self.assertEqual(self.calls['BRIEF'],2)
  def test_visual_failure_returns_render(self):
