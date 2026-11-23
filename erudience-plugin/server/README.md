@@ -139,32 +139,73 @@ Claude Desktop after editing. Then ask Claude to list tools or run
 `get_system_status` — the 13 `erudiance` tools appear.
 
 Tested 2026-11-24 with a local MCP client (`/tmp/test_mcp.py`):
-12/12 checks passed — initialize, ping, tools/list (13 tools, no
-`submit_owner_decision`), `get_system_status`, owner decision denied
-(`FORBIDDEN_OWNER_ONLY`), `start_workflow` TEST_FIXTURE (7 jobs
-`TEST_FIXTURE_PASS`), `get_batch_report`, unknown tool/method errors.
+12/12 checks passed — initialize, ping, tools/list (16 tools: 13 run
+ops + 3 template-store tools, no `submit_owner_decision`),
+`get_system_status`, owner decision denied (`FORBIDDEN_OWNER_ONLY`),
+`start_workflow` TEST_FIXTURE (7 jobs `TEST_FIXTURE_PASS`),
+`get_batch_report`, unknown tool/method errors.
 
 Note: claude.ai on the web uses remote MCP servers, which need a
-public HTTPS URL — same deployment step as ChatGPT. The stdio server
-above works locally (Claude Desktop / Claude Code) without deploying.
+public HTTPS URL — see the HTTP MCP server below.
+
+## Claude — HTTP MCP server (`mcp_http.py`)
+
+The same 16 tools over Streamable HTTP (POST `/mcp`) — this is what
+claude.ai connects to as a **custom connector**. Same rules as the
+stdio server, plus an API key (the process is remote, not local):
+`ERUDIANCE_API_KEY` must be set or the server refuses to start.
+Owner access rule (decisions.json `claude_access`): no repo access,
+never change any code; only generate content and build images;
+templates may be created and stored as data; all data stays on the
+server. `submit_owner_decision` is NOT a tool and is refused.
+
+Template store: `save_template` / `list_templates` / `get_template`
+store plain JSON template definitions under
+`<state-dir>/templates/<slug>.json`. A template is data (name, kind,
+version, blocks) — validated on write, never executed. The slug must
+match `[a-z0-9][a-z0-9-]{0,63}` so no path can escape the store.
+
+Run locally:
+
+```bash
+ERUDIANCE_API_KEY=<key> python mcp_http.py   # port 8766, or $PORT
+```
+
+Connect in claude.ai (computer — Custom GPT / Connectors):
+Customize → Connectors → Add custom connector → URL
+`https://<your-deploy-url>/mcp`, No sign-in, Request header
+`X-Api-Key: <key>`. Then just say `erudiance_linkdin` in chat.
+
+Tested 2026-11-24 with a local HTTP client (`/tmp/test_mcp_http.py`):
+24/24 checks passed — health, 405/404, 401 (no/wrong key),
+initialize, ping, notification (202), tools/list (16 tools),
+`get_system_status`, owner decision denied, unknown tool/method,
+template save/list/get, bad slug/kind rejected, missing template
+(NOT_FOUND), `start_workflow` TEST_FIXTURE (7 jobs
+`TEST_FIXTURE_PASS`).
 
 ## Deployment — still pending
 
-There is no deployed URL yet. Render hosting needs a git repo for the
-server, and that is an owner decision (pending). Until the server is
-deployed and the first real ChatGPT request succeeds through it,
-`chatgpt_connected` stays `false` — the code never claims a connection
-it has not observed. After deployment, replace
-`https://REPLACE_WITH_DEPLOY_URL` in `openapi.json` with the real URL
-and re-import the spec in ChatGPT.
+There is no deployed URL yet. `render.yaml` (repo root) defines the
+free Render web service for `mcp_http.py`; after connecting the repo
+on Render, set `ERUDIANCE_API_KEY` in the Render dashboard (same key
+goes into the Claude custom connector). Free-plan disk is ephemeral,
+so job state and stored templates do NOT survive a restart/redeploy.
+Until the server is deployed and the first real Claude request
+succeeds through it, nothing here claims a live connection. After
+deployment, replace `https://REPLACE_WITH_DEPLOY_URL` in
+`openapi.json` with the real URL and re-import the spec in ChatGPT.
 
 ## Files
 
 - `server.py` — stdlib-only ThreadingHTTPServer (13 allowed ops, 1
   explicit deny, key auth, rate limit, safe logging).
-- `mcp_server.py` — stdlib-only MCP server over stdio (same 13 ops as
-  tools, no API key, owner decision denied). Tested 2026-11-24: 12/12
-  MCP client checks passed.
+- `mcp_server.py` — stdlib-only MCP server over stdio (13 run ops + 3
+  template-store tools, no API key, owner decision denied). Tested
+  2026-11-24: 12/12 MCP client checks passed.
+- `mcp_http.py` — stdlib-only MCP server over Streamable HTTP (POST
+  `/mcp`, same 16 tools, X-Api-Key auth, 60 req/min). For claude.ai
+  custom connectors. Tested 2026-11-24: 24/24 HTTP client checks passed.
 - `openapi.json` — OpenAPI 3.0.3 spec for the 13 allowed ops.
 - `decisions.json` — owner decisions record.
 - `state/` — created at first start; job state lives here by default.
