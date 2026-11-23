@@ -14,7 +14,7 @@ ChatGPT may run automation only. It may **never** change anything.
 |---|---|---|
 | `get_system_status` | Bridge/gate/batch versions, provider statuses, approval state | API key |
 | `list_agent_capabilities` | The 18 agent roles and their contracts | API key |
-| `start_workflow` | Start a 7-job workflow (7 distinct topics, cycle) | API key |
+| `start_workflow` | Start a 7-job workflow (cycle; topics optional — omit to auto-generate 7 from Erudiance's verified website pages) | API key |
 | `get_workflow_status` | Status of a workflow / single job | API key |
 | `execute_authorized_step` | Run one authorized workflow step | API key |
 | `resume_workflow` | Resume from a checkpoint (gates are never skipped) | API key |
@@ -41,6 +41,19 @@ status only — never the key or payload contents; unexpected errors
 return 500 `INTERNAL` with no stack trace. `/health` and
 `/openapi.json` are public (no key) so ChatGPT can fetch the spec and
 health-check the service; every `/ops/*` call needs the key.
+
+## Auto-topic (owner order 2026-11-24)
+
+`start_workflow` accepts topics as optional. When topics are omitted,
+the server generates 7 distinct topics itself from Erudiance's verified
+website pages (erudience.com service pages, all HTTP 200 on 2026-11-24),
+rotating deterministically per cycle so consecutive cycles differ. Each
+auto topic cites the homepage + its service page as sources
+(USER_SUPPLIED provenance — no live fetch provider exists), and the
+batch gets a default strategy (7 slots, exactly 1 promotion) plus fresh
+research evidence, so a live run (`mode: "LIVE"`) passes the gates with
+no caller-supplied topics. Jobs record `topic_source:
+"server-generated"`. Explicit topics behave exactly as before.
 
 ## Run locally
 
