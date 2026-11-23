@@ -3,7 +3,7 @@ from datetime import date,datetime,timedelta,timezone
 from pathlib import Path
 from unittest import mock
 from PIL import Image
-from batch_guard_v45 import initialise,summary,AGENT_REGISTRY,STAGE_AGENT,build_adapters,run_job,run_batch,verify_batch_strategy,check_duplicate_images,research_due
+from batch_guard_v45 import initialise,summary,AGENT_REGISTRY,STAGE_AGENT,build_adapters,run_job,run_batch,verify_batch_strategy,check_duplicate_images,research_due,generate_topics,prepare_auto_batch,default_auto_strategy
 import batch_guard_v45
 from competitor_monitor import assess_market_signals
 from chatgpt_bridge_v43 import load,save
@@ -27,6 +27,59 @@ class BatchTests(unittest.TestCase):
  def test_wrong_content_id_rejected(self):
   c=Chain({'content_id':'ER-1','topic':'T'},{});c.records={'CONTENT':{'hash':'h','artifact':{'topic':'T','caption':'caption'}},'CONTENT_REVIEW':{'hash':'review'}}
   with self.assertRaisesRegex(GateFailure,'PLAN_CONTENT_ID_MISMATCH'):c.verify('IMAGE_PLAN',{'content_id':'ER-2','upstream_hash':'review'},Adapter('planner',None))
+class AutoTopicTests(unittest.TestCase):
+ def setUp(self):self.tmp=tempfile.TemporaryDirectory();self.root=self.tmp.name
+ def tearDown(self):self.tmp.cleanup()
+ def test_generate_topics_seven_distinct(self):
+  topics=generate_topics('20261124')
+  self.assertEqual(len(topics),7);self.assertEqual(len(set(topics)),7)
+  self.assertEqual(topics,generate_topics('20261124'))
+  self.assertTrue(all(isinstance(t,str) and t.strip() for t in topics))
+ def test_generate_topics_rotates_by_cycle(self):
+  self.assertNotEqual(generate_topics('20261124'),generate_topics('20261125'))
+ def test_default_auto_strategy_passes(self):
+  self.assertEqual(verify_batch_strategy(default_auto_strategy(),None)['status'],'PASS')
+ def test_prepare_auto_batch_writes_evidence(self):
+  topics,per_topic,strategy=prepare_auto_batch(self.root,'20261124')
+  self.assertEqual(len(topics),7)
+  ev=json.loads((Path(self.root)/'research_evidence.json').read_text())
+  self.assertTrue(any(e['url']=='https://erudience.com' for e in ev))
+  for t in topics:
+   self.assertTrue(any(s['url'].startswith('https://erudience.com/services/') for s in per_topic[t]))
+ def test_run_batch_auto_topics_fixture(self):
+  r=run_batch(self.root,None,'20261124')
+  self.assertTrue(r['auto_topics']);self.assertEqual(len(r['jobs']),7)
+  self.assertTrue(all(j['status']=='TEST_FIXTURE_PASS' for j in r['jobs']))
+  self.assertEqual(len(set(r['topics'])),7)
+  manifest=json.loads((Path(self.root)/'manifest.json').read_text())
+  for job in manifest['jobs']:
+   state=load(job['state'])
+   self.assertEqual(state['job'].get('topic_source'),'server-generated')
+   self.assertTrue(state['job'].get('sources'))
+   path=state['records']['IMAGE_BUILD']['artifact']['image_path']
+   with Image.open(path) as im:self.assertEqual(im.size,(1080,1350))
+ def test_run_batch_auto_topics_live(self):
+  import os
+  old=os.getcwd()
+  try:
+   os.chdir(self.root)
+   r=run_batch(self.root,None,'20261124',mode='LIVE')
+  finally:
+   os.chdir(old)
+  self.assertTrue(r['auto_topics'])
+  self.assertTrue(all(j['status']=='READY_FOR_OWNER_REVIEW' for j in r['jobs']),r['jobs'])
+  self.assertEqual(r['batch']['batch_status'],'READY_FOR_OWNER_REVIEW')
+  manifest=json.loads((Path(self.root)/'manifest.json').read_text())
+  seen=set()
+  for job in manifest['jobs']:
+   state=load(job['state'])
+   self.assertEqual(state['approval_status'],'READY_FOR_OWNER_REVIEW')
+   self.assertEqual(state['job'].get('topic_source'),'server-generated')
+   self.assertTrue(state['job'].get('sources'))
+   path=state['records']['IMAGE_BUILD']['artifact']['image_path']
+   with Image.open(path) as im:self.assertEqual(im.size,(1080,1350))
+   seen.add(filehash(path))
+  self.assertEqual(len(seen),7)
 class RegistryTests(unittest.TestCase):
  def test_eighteen_agents(self):
   self.assertEqual(len(AGENT_REGISTRY),18)
