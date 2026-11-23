@@ -2,7 +2,8 @@
 
 Stdio MCP server (JSON-RPC 2.0, newline-delimited) exposing the SAME 13
 run-only operations as the ChatGPT HTTP server (``server.py``) to Claude
-(Claude Desktop, Claude Code, or any MCP client):
+(Claude Desktop, Claude Code, or any MCP client), plus 3 template-store
+tools (save/list/get_template — plain JSON data, never code):
 
 - Allowed: the 13 run-only operations in TOOLS below.
 - DENIED: ``submit_owner_decision`` (owner approval) is NOT a tool and
@@ -38,7 +39,9 @@ Logging goes to stderr only — stdout is the protocol.
 """
 import json
 import os
+import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -75,6 +78,129 @@ SERVER_VERSION = "4.9.2"
 PROTOCOL_VERSION = "2024-11-05"
 
 # ---------------------------------------------------------------------------
+# Template store — data only, never code.
+#
+# A template is a plain JSON layout definition (name, kind, blocks, ...)
+# stored as <state-dir>/templates/<slug>.json. Claude may CREATE a
+# template and STORE it here (owner rule, 2026-11-24), and the renderer
+# later reads the stored definition to draw the poster. Nothing stored
+# here is executed: the file is JSON data, validated on write, and the
+# slug is restricted so no path can escape the templates dir.
+# ---------------------------------------------------------------------------
+TEMPLATE_KINDS = {"tips", "promotion", "case-study", "comparison",
+                  "announcement", "quote", "checklist", "myth-fact",
+                  "testimonial", "event", "custom"}
+_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+_TEMPLATE_KEYS = {"slug", "name", "kind", "version", "blocks",
+                  "description", "colors", "created_by", "updated_at"}
+_HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+
+
+def _templates_dir(state_dir):
+    d = Path(state_dir) / "templates"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _utcnow():
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _validate_template(data):
+    """Check a template definition is plain data in the allowed shape.
+    Returns (ok, error_message)."""
+    if not isinstance(data, dict):
+        return False, "template must be an object"
+    extra = set(data) - _TEMPLATE_KEYS
+    if extra:
+        return False, "unknown template keys: %s" % sorted(extra)
+    name = data.get("name")
+    if not isinstance(name, str) or not name.strip() or len(name) > 120:
+        return False, "name must be a non-empty string (max 120 chars)"
+    if data.get("kind") not in TEMPLATE_KINDS:
+        return False, "kind must be one of: %s" % sorted(TEMPLATE_KINDS)
+    version = data.get("version")
+    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+        return False, "version must be an integer >= 1"
+    blocks = data.get("blocks")
+    if not isinstance(blocks, list) or not blocks or len(blocks) > 20:
+        return False, "blocks must be a non-empty list (max 20)"
+    for i, b in enumerate(blocks):
+        if not isinstance(b, dict) or not isinstance(b.get("type"), str) \
+                or not b["type"].strip():
+            return False, "blocks[%d] must be an object with a non-empty 'type'" % i
+    desc = data.get("description")
+    if desc is not None and (not isinstance(desc, str) or len(desc) > 500):
+        return False, "description must be a string (max 500 chars)"
+    colors = data.get("colors")
+    if colors is not None:
+        if not isinstance(colors, dict):
+            return False, "colors must be an object of hex strings"
+        for k, v in colors.items():
+            if not isinstance(v, str) or not _HEX_RE.match(v):
+                return False, "colors[%s] must be a #RRGGBB hex string" % k
+    return True, ""
+
+
+def _save_template(arguments):
+    slug = arguments.get("slug")
+    if not isinstance(slug, str) or not _SLUG_RE.match(slug):
+        return {"ok": False, "error": "INVALID_INPUT",
+                "message": "slug must match [a-z0-9][a-z0-9-]{0,63}"}
+    data = arguments.get("template")
+    ok, err = _validate_template(data if isinstance(data, dict) else None)
+    if not ok:
+        return {"ok": False, "error": "INVALID_INPUT", "message": err}
+    data = dict(data)
+    data["slug"] = slug
+    operator = arguments.get("operator")
+    if isinstance(operator, str) and operator.strip():
+        data["created_by"] = operator.strip()
+    data["updated_at"] = _utcnow()
+    target = _templates_dir(arguments["state_dir"]) / (slug + ".json")
+    tmp = target.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                   encoding="utf-8")
+    tmp.replace(target)  # atomic within the templates dir
+    return {"ok": True, "slug": slug, "version": data["version"],
+            "path": str(target)}
+
+
+def _list_templates(arguments):
+    d = _templates_dir(arguments["state_dir"])
+    out = []
+    for f in sorted(d.glob("*.json")):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        out.append({"slug": data.get("slug", f.stem),
+                    "name": data.get("name"),
+                    "kind": data.get("kind"),
+                    "version": data.get("version"),
+                    "updated_at": data.get("updated_at")})
+    return {"ok": True, "templates": out, "count": len(out)}
+
+
+def _get_template(arguments):
+    slug = arguments.get("slug")
+    if not isinstance(slug, str) or not _SLUG_RE.match(slug):
+        return {"ok": False, "error": "INVALID_INPUT",
+                "message": "slug must match [a-z0-9][a-z0-9-]{0,63}"}
+    target = _templates_dir(arguments["state_dir"]) / (slug + ".json")
+    if not target.exists():
+        return {"ok": False, "error": "NOT_FOUND",
+                "message": "no template named %r" % slug}
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+    except (ValueError, OSError) as exc:
+        return {"ok": False, "error": "INTERNAL",
+                "message": "stored template is unreadable: %s" % exc}
+    return {"ok": True, "template": data}
+
+# ---------------------------------------------------------------------------
 # Operation allowlist / denylist (the owner's access rule).
 # ---------------------------------------------------------------------------
 ALLOWED_OPS = {
@@ -91,6 +217,11 @@ ALLOWED_OPS = {
     "validate_image": chatgpt_bridge_v43.op_validate_image,
     "get_batch_report": chatgpt_bridge_v43.op_get_batch_report,
     "get_audit_report": chatgpt_bridge_v43.op_get_audit_report,
+    # Template store (data only — see above). Claude may create and store
+    # template definitions; it never writes code.
+    "save_template": _save_template,
+    "list_templates": _list_templates,
+    "get_template": _get_template,
 }
 # Explicit deny, checked BEFORE any dispatch. Owner approval is never
 # available to Claude; only the owner decides (op_submit_owner_decision
@@ -224,6 +355,37 @@ TOOLS = [
                     "Reports honestly when no ledger exists.",
      "inputSchema": {"type": "object",
                      "properties": {"state_dir": _OPT_STATE_DIR},
+                     "additionalProperties": False}},
+    {"name": "save_template",
+     "description": "Save a poster template definition (plain JSON data: "
+                    "name, kind, version, blocks) under a slug, in the "
+                    "server's template store. Templates are data, never "
+                    "code — nothing stored here is executed.",
+     "inputSchema": {"type": "object",
+                     "properties": {
+                         "slug": {"type": "string",
+                                  "description": "Lowercase letters, digits and "
+                                                 "dashes, e.g. 'promo-offer'."},
+                         "template": {"type": "object",
+                                      "description": "Template definition: name, "
+                                                     "kind, version, blocks."},
+                         "operator": {"type": "string"},
+                         "state_dir": _OPT_STATE_DIR},
+                     "required": ["slug", "template"],
+                     "additionalProperties": False}},
+    {"name": "list_templates",
+     "description": "List the stored poster templates (slug, name, kind, "
+                    "version).",
+     "inputSchema": {"type": "object",
+                     "properties": {"state_dir": _OPT_STATE_DIR},
+                     "additionalProperties": False}},
+    {"name": "get_template",
+     "description": "Read one stored poster template definition by slug.",
+     "inputSchema": {"type": "object",
+                     "properties": {
+                         "slug": {"type": "string"},
+                         "state_dir": _OPT_STATE_DIR},
+                     "required": ["slug"],
                      "additionalProperties": False}},
 ]
 _TOOLS_BY_NAME = {t["name"]: t for t in TOOLS}
