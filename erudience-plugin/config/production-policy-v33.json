@@ -63,8 +63,16 @@
       "ink": "#14120E",
       "soft": "#615B4C",
       "emerald": "#10B77F",
-      "deep": "#0A6E3E",
-      "dark": "#0A100E"
+      "deep": "#0C8D62",
+      "dark": "#080C0B",
+      "taupe": "#B7B0A0",
+      "emerald_light": "#36D399",
+      "emerald_dark": "#0C8D62",
+      "mint": "#8AE5C4",
+      "border": "#21312C",
+      "background": "#080C0B",
+      "card": "#0F1A16",
+      "foreground": "#F9FBFA"
     }
   },
   "brand_assets": {
