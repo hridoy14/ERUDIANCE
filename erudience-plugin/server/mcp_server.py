@@ -248,23 +248,27 @@ TOOLS = [
      "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}},
     {"name": "start_workflow",
      "description": "Start a 7-job content batch (7 distinct topics, one "
-                    "cycle). Live mode needs 7 slots with exactly 1 promotion; "
-                    "TEST_FIXTURE mode runs the same pipeline on fixtures.",
+                    "cycle). Omit topics to auto-generate 7 topics from "
+                    "Erudiance's verified website pages. Pass mode LIVE "
+                    "for real owner-reviewable output; TEST_FIXTURE "
+                    "(default) runs the same pipeline on fixtures.",
      "inputSchema": {"type": "object",
                      "properties": {
                          "topics": {"type": "array", "items": _STR,
                                     "minItems": 7, "maxItems": 7,
-                                    "description": "Exactly 7 distinct non-empty topics."},
+                                    "description": "Optional. Exactly 7 distinct "
+                                                   "non-empty topics. When omitted, "
+                                                   "the server auto-generates 7."},
                          "cycle": {"type": "string",
                                    "description": "Cycle id, e.g. 20261124."},
                          "operator": {"type": "string",
                                       "description": "Who runs it (a name). Required."},
                          "mode": {"type": "string",
-                                  "description": "TEST_FIXTURE (default) or live mode."},
+                                  "description": "TEST_FIXTURE (default) or LIVE."},
                          "strategy": {"type": "object",
                                       "description": "Optional strategy overrides."},
                          "state_dir": _OPT_STATE_DIR},
-                     "required": ["topics", "cycle", "operator"],
+                     "required": ["cycle", "operator"],
                      "additionalProperties": False}},
     {"name": "get_workflow_status",
      "description": "Status of the current batch, or of one job by content_id.",
