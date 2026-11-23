@@ -12,7 +12,7 @@ from dataclasses import dataclass
 STAGES=('SOURCES','RESEARCH','STRATEGY','CONTENT','CONTENT_QA','BRIEF','BRIEF_QA','RENDER','TECH_QA','VISUAL_QA','CONTENT_MATCH_QA','BRAND_QA','DELIVERY')
 REPAIR={'SOURCES':'SOURCES','RESEARCH':'RESEARCH','STRATEGY':'STRATEGY','CONTENT':'CONTENT','CONTENT_QA':'CONTENT','BRIEF':'BRIEF','BRIEF_QA':'BRIEF','RENDER':'RENDER','TECH_QA':'RENDER','VISUAL_QA':'RENDER','CONTENT_MATCH_QA':'BRIEF','BRAND_QA':'BRIEF','DELIVERY':'DELIVERY'}
 REVIEWS={'CONTENT_QA','BRIEF_QA','VISUAL_QA','CONTENT_MATCH_QA','BRAND_QA'}
-PALETTE={'paper':'#F6F1E9','ink':'#14120E','soft':'#615B4C','emerald':'#10B981','deep':'#0A6E3E','dark':'#0A100E'}
+PALETTE={'paper':'#F6F1E9','ink':'#14120E','soft':'#615B4C','emerald':'#10B77F','deep':'#0C8D62','dark':'#080C0B'}
 class PipelineError(RuntimeError):pass
 class StageFailure(PipelineError):
  def __init__(self,reason,repair_at=None):super().__init__(reason);self.repair_at=repair_at
@@ -51,7 +51,7 @@ class Controller:
   if stage=='BRIEF':
    assert_true(value.get('topic')==self.job['topic'] and value.get('content_sha256')==self.records['CONTENT']['hash'],'BRIEF_CONTENT_BINDING_FAILED')
    assert_true(value.get('poster_text') and value.get('brand_profile')=='website-v38','BRIEF_OR_BRAND_MISSING')
-   assert_true(value.get('heading_font')=='Inter' and value.get('body_font')=='DM Sans' and value.get('palette')==PALETTE,'BRAND_SPEC_MISMATCH')
+   assert_true(value.get('heading_font')=='Sora' and value.get('body_font')=='Sora' and value.get('palette')==PALETTE,'BRAND_SPEC_MISMATCH')
    assert_true(value.get('footer')=='erudience.com' and value.get('brand_name')=='Erudience','BRAND_IDENTITY_MISSING')
    assert_true(norm(value['poster_text'].get('headline','')) and norm(value['poster_text'].get('headline','')) in norm(value.get('approved_headline',value['poster_text'].get('headline',''))),'POSTER_HEADLINE_MISMATCH')
   if stage=='RENDER':
@@ -109,7 +109,7 @@ def deterministic_content_match(job,records,prior):
 
 def deterministic_brand_check(job,records,prior):
  brief=records['BRIEF']['artifact'];render=records['RENDER']['artifact']
- assert_true(brief['palette']==PALETTE and brief['heading_font']=='Inter' and brief['body_font']=='DM Sans','BRAND_TOKENS_MISMATCH')
+ assert_true(brief['palette']==PALETTE and brief['heading_font']=='Sora' and brief['body_font']=='Sora','BRAND_TOKENS_MISMATCH')
  assert_true(brief['brand_name']=='Erudience' and brief['footer']=='erudience.com','BRAND_IDENTITY_MISSING')
  assert_true(render.get('font_provenance_verified') is True,'RENDER_FONT_NOT_VERIFIED')
  return {'decision':'PASS','reviewer_id':'deterministic-brand-validator-v40','observations':'Verified website brand tokens and font provenance metadata; visual human inspection is separate','subject_sha256':prior['hash'],'image_sha256':render['image_sha256'],'brief_sha256':records['BRIEF']['hash'],'website_brand_verified':True}
