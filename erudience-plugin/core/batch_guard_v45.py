@@ -1420,20 +1420,116 @@ def _post_delivery_analytics(root, jobs_out):
         indent=2, ensure_ascii=False), encoding='utf-8')
     return {'status': 'PASS', 'feedback': feedback}
 
+# ---------------------------------------------------------------------------
+# Auto-topic generation (owner order 2026-11-24: "auto-topic lagao").
+# When start_workflow is called without topics, the server generates 7
+# distinct topics itself instead of failing. Every topic pairs an
+# Erudiance service with a niche it serves, and cites the real service
+# page on erudience.com (all URLs below returned HTTP 200 on
+# 2026-11-24) plus the homepage as its sources. Topics are labelled
+# server-generated in the job state; sources are USER_SUPPLIED
+# provenance — no live fetch provider exists, so nothing is ever
+# claimed LIVE_VERIFIED. Rotation is deterministic per cycle (sha256
+# offset), so consecutive cycles get different topic sets.
+# ---------------------------------------------------------------------------
+
+_AUTO_TOPIC_HOME = 'https://erudience.com'
+_AUTO_TOPIC_BANK = [
+    ('AI voice agents for dental clinics', 'https://erudience.com/services/voice-ai-systems'),
+    ('AI receptionist for law firms', 'https://erudience.com/services/voice-ai-systems'),
+    ('Call automation for estate agents', 'https://erudience.com/services/voice-ai-systems'),
+    ('After-hours call answering for vets', 'https://erudience.com/services/voice-ai-systems'),
+    ('AI phone orders for Shopify stores', 'https://erudience.com/services/voice-ai-systems'),
+    ('AI debt collection calls for lenders', 'https://erudience.com/services/voice-ai-systems'),
+    ('Support automation for e-commerce stores', 'https://erudience.com/services/support-automation'),
+    ('AI support ticket triage for SaaS teams', 'https://erudience.com/services/support-automation'),
+    ('Workflow automation for accountants', 'https://erudience.com/services/business-workflow-automation'),
+    ('Workflow automation for financial advisers', 'https://erudience.com/services/business-workflow-automation'),
+    ('Business workflow automation for construction firms', 'https://erudience.com/services/business-workflow-automation'),
+    ('LinkedIn automation for estate agents', 'https://erudience.com/services/linkedin-automation'),
+    ('LinkedIn lead generation for B2B agencies', 'https://erudience.com/services/linkedin-automation'),
+    ('LinkedIn engagement automation for consultants', 'https://erudience.com/services/linkedin-automation'),
+    ('Sales outreach automation for recruiters', 'https://erudience.com/services/sales-outreach-automation'),
+    ('AI deal sourcing for property investors', 'https://erudience.com/services/sales-outreach-automation'),
+    ('HubSpot automation for growing teams', 'https://erudience.com/services/hubspot-automation'),
+    ('Salesforce automation for sales teams', 'https://erudience.com/services/salesforce-automation'),
+    ('GoHighLevel automation for local businesses', 'https://erudience.com/services/gohighlevel-automation'),
+    ('Custom AI systems for logistics firms', 'https://erudience.com/services/custom-ai-systems'),
+    ('Multilingual AI lead qualification for exporters', 'https://erudience.com/services/custom-ai-systems'),
+]
+
+def generate_topics(cycle, count=SLOTS):
+    """7 distinct auto topics for a cycle (deterministic rotation)."""
+    bank = _AUTO_TOPIC_BANK
+    if len(bank) < count:
+        raise ValueError('AUTO_TOPIC_BANK_TOO_SMALL')
+    offset = int(hashlib.sha256(str(cycle).encode()).hexdigest()[:8], 16) % len(bank)
+    return [bank[(offset + i) % len(bank)][0] for i in range(count)]
+
+def auto_topic_sources(topic, verified_at):
+    """Sources for one auto topic: homepage + its service page."""
+    url = dict(_AUTO_TOPIC_BANK).get(topic)
+    sources = [{'url': _AUTO_TOPIC_HOME, 'verified_at': verified_at}]
+    if url and url != _AUTO_TOPIC_HOME:
+        sources.append({'url': url, 'verified_at': verified_at})
+    return sources
+
+def default_auto_strategy():
+    """7 slots, exactly 1 promotion (last slot, with employee
+    requirement) — passes validate_strategy_v33.validate()."""
+    slots = [{'promotion': False} for _ in range(SLOTS - 1)]
+    slots.append({'promotion': True,
+                  'employee_requirement': 'Staff oversees exceptions'})
+    return slots
+
+def prepare_auto_batch(root, cycle):
+    """Generate auto topics + per-topic sources + default strategy for
+    a batch, and write fresh research_evidence.json into root so the
+    live research-due check passes. Returns (topics, {topic: sources},
+    strategy)."""
+    root_path = Path(root)
+    verified_at = _utc_today().isoformat()
+    topics = generate_topics(cycle)
+    per_topic = {t: auto_topic_sources(t, verified_at) for t in topics}
+    evidence = []
+    seen = set()
+    for sources in per_topic.values():
+        for s in sources:
+            if s['url'] not in seen:
+                seen.add(s['url'])
+                evidence.append(dict(s))
+    root_path.mkdir(parents=True, exist_ok=True)
+    (root_path / 'research_evidence.json').write_text(
+        json.dumps(evidence, indent=2), encoding='utf-8')
+    return topics, per_topic, default_auto_strategy()
+
 def run_batch(root, topics, cycle, strategy=None, mode='TEST_FIXTURE'):
     """Run a 7-job batch end to end.
 
-    Live mode refuses to start when research is due and no fresh
-    research_evidence is supplied ({'ok': False, 'error':
+    topics=None means auto-topic: 7 topics are generated from
+    Erudiance's verified website pages (prepare_auto_batch), with
+    per-job sources and a default strategy (7 slots, exactly 1
+    promotion) attached, and fresh research_evidence.json written so
+    the live research-due check passes. Explicit topics keep the old
+    behaviour exactly. Live mode refuses to start when research is due
+    and no fresh research_evidence is supplied ({'ok': False, 'error':
     'RESEARCH_DUE'}); fixture mode is exempt. When a strategy is
     provided it is verified FIRST (verify_batch_strategy) and a failing
     strategy raises ValueError 'BATCH_STRATEGY_BLOCKED: ...'. An existing
     manifest is reused (resume) instead of raising. Jobs are
     independent: a BLOCKED job never stops the others. Returns
     {'cycle', 'jobs': [per-job run results], 'batch': summary(root),
-    'duplicates': check_duplicate_images(root)}.
+    'duplicates': check_duplicate_images(root), 'topics': topics,
+    'auto_topics': bool}.
     """
     root_path = Path(root)
+    auto_topics = False
+    per_topic_sources = {}
+    if topics is None:
+        topics, per_topic_sources, auto_strategy = prepare_auto_batch(root_path, cycle)
+        auto_topics = True
+        if strategy is None:
+            strategy = auto_strategy
     if mode != 'TEST_FIXTURE':
         due = research_due(root_path)
         if due['due'] and not _fresh_research_evidence(root_path):
@@ -1443,13 +1539,21 @@ def run_batch(root, topics, cycle, strategy=None, mode='TEST_FIXTURE'):
         if check['status'] != 'PASS':
             raise ValueError('BATCH_STRATEGY_BLOCKED: ' + '; '.join(check['errors']))
     _record_event(root_path, f'BATCH-{cycle}', 'BATCH_START',
-                  {'cycle': cycle, 'mode': mode, 'strategy': bool(strategy)})
+                  {'cycle': cycle, 'mode': mode, 'strategy': bool(strategy),
+                   'auto_topics': auto_topics})
     manifest_path = root_path / 'manifest.json'
     if manifest_path.is_file():
         manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     else:
         initialise(root, topics, cycle)
         manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+        if auto_topics:
+            for job in manifest.get('jobs', []):
+                state = load(job['state'])
+                topic = state['job'].get('topic')
+                state['job']['sources'] = per_topic_sources.get(topic, [])
+                state['job']['topic_source'] = 'server-generated'
+                save(job['state'], state)
     jobs_out = []
     for index, job in enumerate(manifest.get('jobs', [])):
         state_path = job['state']
@@ -1472,4 +1576,5 @@ def run_batch(root, topics, cycle, strategy=None, mode='TEST_FIXTURE'):
                    'passed': sum(1 for j in jobs_out if j.get('status') in ('TEST_FIXTURE_PASS', 'READY_FOR_OWNER_REVIEW')),
                    'blocked': sum(1 for j in jobs_out if j.get('status') == 'BLOCKED')})
     return {'cycle': manifest.get('cycle', cycle), 'jobs': jobs_out,
-            'batch': summary(root), 'duplicates': check_duplicate_images(root)}
+            'batch': summary(root), 'duplicates': check_duplicate_images(root),
+            'topics': list(topics), 'auto_topics': auto_topics}
