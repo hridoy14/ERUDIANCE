@@ -423,7 +423,10 @@ def _dispatch_action(action, args, state_dir, owner, trace):
         topics = args.get("topics")
         if isinstance(topics, str):
             topics = [t.strip() for t in topics.split(",") if t.strip()]
-        if (not isinstance(topics, list) or len(topics) != 7
+        # topics=None means auto-topic: run_batch generates 7 topics
+        # from Erudiance's verified website pages. Explicit topics
+        # are still validated exactly as before.
+        if topics is not None and (not isinstance(topics, list) or len(topics) != 7
                 or len(set(topics)) != 7
                 or any(not isinstance(t, str) or not t.strip() for t in topics)):
             return ("INVALID_INPUT",
@@ -444,8 +447,9 @@ def _dispatch_action(action, args, state_dir, owner, trace):
         except Exception as e:
             return ("ORCHESTRATOR_ERROR", {"detail": "run_batch failed: %s" % e},
                     "ORCHESTRATOR_ERROR", "run_batch failed: %s" % e)
+        resolved = out.get("topics", topics) if isinstance(out, dict) else topics
         trace.append(_trace_event(action, "BATCH_STARTED",
-                                  {"cycle": cycle, "topics": topics}))
+                                  {"cycle": cycle, "topics": resolved}))
         return ("STARTED", out if isinstance(out, dict) else {"result": out}, None, None)
 
     if action == "TEST":
@@ -1190,14 +1194,16 @@ def op_list_agent_capabilities(payload):
 def op_start_workflow(payload):
     if not isinstance(payload, dict):
         return _op_error("INVALID_INPUT", "payload must be an object")
-    err = _op_invalid_if_missing(payload, ["topics", "cycle", "state_dir"])
+    err = _op_invalid_if_missing(payload, ["cycle", "state_dir"])
     if err:
         return err
     err = _op_identity(payload, "operator")
     if err:
         return err
-    topics = payload["topics"]
-    if (not isinstance(topics, list) or len(topics) != 7
+    # topics is optional: omitted/None means auto-topic (the server
+    # generates 7 topics from Erudiance's verified website pages).
+    topics = payload.get("topics")
+    if topics is not None and (not isinstance(topics, list) or len(topics) != 7
             or len(set(topics)) != 7
             or any(not isinstance(t, str) or not t.strip() for t in topics)):
         return _op_error("INVALID_INPUT",
@@ -1750,7 +1756,8 @@ def main(argv=None):
     accepts the ``erudience_linkdin`` alias and ``@Erudience``), where
     <action> is one of START/RESUME/STATUS/TEST/VALIDATE/RETRY/CANCEL/
     OWNER_REVIEW/APPROVE/REJECT/READ/DO/GO/WRITE. Flags: --state-dir
-    (required), --topics (comma-separated, 7 for START), --cycle,
+    (required), --topics (comma-separated, 7 for START; omit to
+    auto-generate 7 topics), --cycle,
     --content-id, --owner/--operator, --decision, --reason, --path,
     --step, --strategy, --mode, --test (fixture mode), --single-content
     <ID>. Prints the dispatch result as JSON; exit code 1 on failure.
