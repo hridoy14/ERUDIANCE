@@ -9,5 +9,22 @@
     "google_search_console": {"base_url": "https://www.googleapis.com/webmasters/v3", "endpoint": "/sites/{siteUrl}/searchAnalytics/query", "method": "POST", "status": "DOCUMENTED_PROVIDER_API_NOT_CONNECTED", "credential_env": "GOOGLE_OAUTH_TOKEN"},
     "research": {"base_url": null, "endpoint": null, "status": "CONNECT_AUTHORIZED_RESEARCH_PROVIDER", "operations": ["search_public_sources", "fetch_permitted_page", "capture_provenance"]},
     "image_renderer": {"base_url": null, "endpoint": null, "status": "LOCAL_SCRIPT_OR_AUTHORIZED_IMAGE_TOOL", "operations": ["render", "inspect", "verify"]}
-  }
+  },
+  "local_operations": {
+    "get_system_status": {"inputs": [], "outputs": ["bridge_version", "gate_version", "batch_version", "providers", "chatgpt", "approval"], "auth": "none"},
+    "list_agent_capabilities": {"inputs": [], "outputs": ["agents", "count"], "auth": "none"},
+    "start_workflow": {"inputs": ["topics", "cycle", "state_dir", "operator"], "outputs": ["dispatch_result"], "auth": "operator"},
+    "get_workflow_status": {"inputs": ["state_dir", "content_id?"], "outputs": ["status", "approval_status", "stage"], "auth": "none"},
+    "execute_authorized_step": {"inputs": ["state_dir", "content_id?", "step", "operator"], "outputs": ["dispatch_result"], "auth": "operator"},
+    "resume_workflow": {"inputs": ["state_dir", "content_id", "operator"], "outputs": ["dispatch_result"], "auth": "operator"},
+    "get_agent_report": {"inputs": ["state_dir", "content_id?"], "outputs": ["report"], "auth": "none"},
+    "get_content_preview": {"inputs": ["state_dir", "content_id"], "outputs": ["content_hash", "caption", "image_path", "image_sha256", "visually_verified"], "auth": "none", "note": "Metadata only; visually_verified is always false."},
+    "get_image_preview": {"inputs": ["state_dir", "content_id"], "outputs": ["image_path", "image_sha256", "dimensions", "visually_verified"], "auth": "none", "note": "Metadata only; visually_verified is always false."},
+    "validate_content": {"inputs": ["item", "artifacts?"], "outputs": ["decision", "reason", "input_sha256"], "auth": "none"},
+    "validate_image": {"inputs": ["image_path"], "outputs": ["inspection", "visually_verified"], "auth": "none"},
+    "get_batch_report": {"inputs": ["state_dir"], "outputs": ["report"], "auth": "none"},
+    "submit_owner_decision": {"inputs": ["owner", "content_id", "decision", "reason?", "state_dir"], "outputs": ["approval_status", "approval_id", "verified"], "auth": "owner", "note": "The ONLY path to approval; requires the job in READY_FOR_OWNER_REVIEW and a ledger verification."},
+    "get_audit_report": {"inputs": ["state_dir"], "outputs": ["ledger", "states"], "auth": "none"}
+  },
+  "chatgpt_connection": {"connected": false, "blocker": "Owner-side installation/hosting/auth required"}
 }
