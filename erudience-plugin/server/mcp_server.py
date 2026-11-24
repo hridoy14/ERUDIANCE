@@ -201,6 +201,144 @@ def _get_template(arguments):
     return {"ok": True, "template": data}
 
 # ---------------------------------------------------------------------------
+# Competitor research data (owner order 2026-11-24: keep the verified
+# competitor list as the research base so Claude can research them and
+# make posts automatically). Plain JSON data, read-only; never executed.
+# Source: competitors-top100.md (83 verified direct competitors) +
+# competitor-ranking.md (tiers, client counts, platforms), merged by
+# /tmp/merge_ranking_json.py. Tier 1 = top / market leaders, Tier 2 =
+# solid, Tier 3 = smaller / thin evidence. client_count is set only
+# where the agency itself states one; platforms only where a profile
+# was found in search — never guessed.
+# ---------------------------------------------------------------------------
+_COMPETITORS_FILE = Path(__file__).resolve().parent / "data" / "competitors.json"
+_COMPETITORS_CACHE = None
+
+
+def _load_competitors():
+    global _COMPETITORS_CACHE
+    if _COMPETITORS_CACHE is not None:
+        return _COMPETITORS_CACHE
+    try:
+        data = json.loads(_COMPETITORS_FILE.read_text(encoding="utf-8"))
+        _COMPETITORS_CACHE = data.get("competitors", [])
+    except (ValueError, OSError):
+        _COMPETITORS_CACHE = []
+    return _COMPETITORS_CACHE
+
+
+def _competitor_summary(e):
+    return {"index": e.get("index"), "name": e.get("name"),
+            "region": e.get("region"), "tier": e.get("tier"),
+            "website": e.get("website"), "linkedin": e.get("linkedin")}
+
+
+def _list_competitors(arguments):
+    items = _load_competitors()
+    if not items:
+        return {"ok": False, "error": "NOT_FOUND",
+                "message": "competitor data is not installed on this server"}
+    region = arguments.get("region")
+    tier = arguments.get("tier")
+    platform = arguments.get("platform")
+    has_linkedin = arguments.get("has_linkedin")
+    limit = arguments.get("limit", 20)
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "INVALID_INPUT",
+                "message": "limit must be an integer"}
+    if limit < 1 or limit > 83:
+        return {"ok": False, "error": "INVALID_INPUT",
+                "message": "limit must be 1..83"}
+    out = [e for e in items
+           if (region is None or e.get("region") == region)
+           and (tier is None or e.get("tier") == tier)
+           and (platform is None or platform in (e.get("platforms") or []))
+           and (has_linkedin is None
+                or bool(e.get("linkedin")) == bool(has_linkedin))]
+    out.sort(key=lambda e: ((e.get("tier") or 99), (e.get("index") or 0)))
+    return {"ok": True, "count": len(out),
+            "competitors": [_competitor_summary(e) for e in out[:limit]],
+            "note": "Tier 1 = top / market leaders, Tier 2 = solid, "
+                    "Tier 3 = smaller. Use get_competitor for full detail "
+                    "(services, HQ, clients, platforms)."}
+
+
+def _get_competitor(arguments):
+    items = _load_competitors()
+    if not items:
+        return {"ok": False, "error": "NOT_FOUND",
+                "message": "competitor data is not installed on this server"}
+    index = arguments.get("index")
+    if isinstance(index, int) and not isinstance(index, bool):
+        hit = [e for e in items if e.get("index") == index]
+        if hit:
+            return {"ok": True, "competitor": hit[0]}
+        return {"ok": False, "error": "NOT_FOUND",
+                "message": "no competitor with index %r" % index}
+    name = arguments.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return {"ok": False, "error": "INVALID_INPUT",
+                "message": "name or index is required"}
+    needle = name.strip().lower()
+    exact = [e for e in items if e.get("name", "").lower() == needle]
+    if len(exact) == 1:
+        return {"ok": True, "competitor": exact[0]}
+    partial = [e for e in items if needle in e.get("name", "").lower()]
+    if len(partial) == 1:
+        return {"ok": True, "competitor": partial[0]}
+    if len(partial) > 1:
+        return {"ok": False, "error": "AMBIGUOUS",
+                "message": "several competitors match %r" % name,
+                "matches": [_competitor_summary(e) for e in partial]}
+    return {"ok": False, "error": "NOT_FOUND",
+            "message": "no competitor named %r" % name}
+
+
+def _get_research_brief(arguments):
+    items = _load_competitors()
+    tiers = {}
+    for e in items:
+        tiers[str(e.get("tier"))] = tiers.get(str(e.get("tier")), 0) + 1
+    top = sorted([e for e in items if e.get("tier") == 1],
+                 key=lambda e: e.get("index") or 0)
+    return {"ok": True,
+            "erudience_website": {
+                "home": "https://erudience.com",
+                "services": [
+                    "https://erudience.com/services/voice-ai-systems",
+                    "https://erudience.com/services/support-automation",
+                    "https://erudience.com/services/business-workflow-automation",
+                    "https://erudience.com/services/linkedin-automation",
+                    "https://erudience.com/services/sales-outreach-automation",
+                    "https://erudience.com/services/hubspot-automation",
+                    "https://erudience.com/services/salesforce-automation",
+                    "https://erudience.com/services/gohighlevel-automation",
+                    "https://erudience.com/services/custom-ai-systems"],
+                "also": ["https://erudience.com/case-studies",
+                         "https://erudience.com/industries",
+                         "https://erudience.com/blog",
+                         "https://erudience.com/about",
+                         "https://erudience.com/book"]},
+            "competitors": {
+                "count": len(items), "tiers": tiers,
+                "tier_1": [_competitor_summary(e) for e in top],
+                "with_linkedin": sum(1 for e in items if e.get("linkedin")),
+                "with_any_platform": sum(1 for e in items if e.get("platforms")),
+                "with_client_count": sum(1 for e in items if e.get("client_count"))},
+            "how_to_research": [
+                "1. list_competitors (tier 1 first) and get_competitor for the ones that matter.",
+                "2. Read the competitor websites and the Erudiance service pages above; note what topics they cover and what Erudiance does differently.",
+                "3. Derive 7 distinct topics from that research.",
+                "4. Call start_workflow with those topics and mode LIVE."],
+            "rules": [
+                "Only cite a source you actually read; never invent a number, a client count, or a competitor claim.",
+                "A client count exists only where the agency itself states one (7 of 83); the rest are 'not stated', never zero.",
+                "A platform is listed only where a profile was found in search; 'not found' means unverified, not non-existent."]}
+
+
+# ---------------------------------------------------------------------------
 # Operation allowlist / denylist (the owner's access rule).
 # ---------------------------------------------------------------------------
 ALLOWED_OPS = {
@@ -222,6 +360,11 @@ ALLOWED_OPS = {
     "save_template": _save_template,
     "list_templates": _list_templates,
     "get_template": _get_template,
+    # Competitor research data (read-only). Claude researches these and
+    # makes posts from what it finds; it never changes the data.
+    "list_competitors": _list_competitors,
+    "get_competitor": _get_competitor,
+    "get_research_brief": _get_research_brief,
 }
 # Explicit deny, checked BEFORE any dispatch. Owner approval is never
 # available to Claude; only the owner decides (op_submit_owner_decision
@@ -248,10 +391,13 @@ TOOLS = [
      "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}},
     {"name": "start_workflow",
      "description": "Start a 7-job content batch (7 distinct topics, one "
-                    "cycle). Omit topics to auto-generate 7 topics from "
-                    "Erudiance's verified website pages. Pass mode LIVE "
-                    "for real owner-reviewable output; TEST_FIXTURE "
-                    "(default) runs the same pipeline on fixtures.",
+                    "cycle). Research competitors first with "
+                    "list_competitors / get_research_brief, then pass the "
+                    "7 topics you derived. Omit topics to auto-generate 7 "
+                    "topics from Erudiance's verified website pages. Pass "
+                    "mode LIVE for real owner-reviewable output; "
+                    "TEST_FIXTURE (default) runs the same pipeline on "
+                    "fixtures.",
      "inputSchema": {"type": "object",
                      "properties": {
                          "topics": {"type": "array", "items": _STR,
@@ -390,6 +536,38 @@ TOOLS = [
                          "slug": {"type": "string"},
                          "state_dir": _OPT_STATE_DIR},
                      "required": ["slug"],
+                     "additionalProperties": False}},
+    {"name": "list_competitors",
+     "description": "List Erudiance's verified direct competitors "
+                    "(83 agencies), Tier 1 first. Filter by region, tier, "
+                    "platform, or LinkedIn presence.",
+     "inputSchema": {"type": "object",
+                     "properties": {
+                         "region": {"type": "string",
+                                    "description": "UK, USA, International or Unknown."},
+                         "tier": {"type": "integer",
+                                  "description": "1 (top), 2 (solid) or 3 (smaller)."},
+                         "platform": {"type": "string",
+                                      "description": "LinkedIn, Facebook, Instagram, X, YouTube, Clutch, Google Business or Threads."},
+                         "has_linkedin": {"type": "boolean"},
+                         "limit": {"type": "integer",
+                                   "description": "How many to return, 1..83 (default 20)."}},
+                     "additionalProperties": False}},
+    {"name": "get_competitor",
+     "description": "Full detail for one competitor by name or index: "
+                    "website, LinkedIn, HQ, services, tier, client count "
+                    "where stated, platforms where found.",
+     "inputSchema": {"type": "object",
+                     "properties": {
+                         "name": {"type": "string"},
+                         "index": {"type": "integer"}},
+                     "additionalProperties": False}},
+    {"name": "get_research_brief",
+     "description": "The research pack for making posts: Erudiance's "
+                    "website source pages, competitor summary (counts, "
+                    "tiers, Tier 1 list), how to research, and the honesty "
+                    "rules for claims.",
+     "inputSchema": {"type": "object", "properties": {},
                      "additionalProperties": False}},
 ]
 _TOOLS_BY_NAME = {t["name"]: t for t in TOOLS}
