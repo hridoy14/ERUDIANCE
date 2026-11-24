@@ -333,8 +333,17 @@ def _get_research_brief(arguments):
             "how_to_research": [
                 "1. list_competitors (tier 1 first) and get_competitor for the ones that matter.",
                 "2. Read the competitor websites and the Erudiance service pages above; note what topics they cover and what Erudiance does differently.",
-                "3. Derive 7 distinct topics from that research.",
-                "4. Call start_workflow with those topics and mode LIVE."],
+                "3. Ask the user which plan they want — 1-day (1 post), "
+                "7-day (7 posts, one per day), or 1-month (30 posts, "
+                "one per day) — and derive that many distinct topics from "
+                "the research (1 for 1-day, 7 for 7-day, 30 for 1-month).",
+                "4. Call start_workflow with the plan and those topics "
+                "and mode LIVE, plus sources: {topic: [{url, "
+                "verified_at}]} for the pages you actually read for "
+                "each topic (a live run without sources is refused). "
+                "After it finishes, generate one image "
+                "in chat for EACH content and show it alongside the "
+                "server poster."],
             "rules": [
                 "Only cite a source you actually read; never invent a number, a client count, or a competitor claim.",
                 "A client count exists only where the agency itself states one (7 of 83); the rest are 'not stated', never zero.",
@@ -427,21 +436,50 @@ TOOLS = [
      "description": "List the 18 specialist agent roles and what each can do.",
      "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}},
     {"name": "start_workflow",
-     "description": "Start a 7-job content batch (7 distinct topics, one "
-                    "cycle). Research competitors first with "
-                    "list_competitors / get_research_brief, then pass the "
-                    "7 topics you derived. Omit topics to auto-generate 7 "
-                    "topics from Erudiance's verified website pages. Pass "
-                    "mode LIVE for real owner-reviewable output; "
-                    "TEST_FIXTURE (default) runs the same pipeline on "
-                    "fixtures.",
+     "description": "Start a content plan. FIRST ask the user which "
+                    "plan they want — 1-day (1 post), "
+                    "7-day (7 posts, one per day), or 1-month (30 "
+                    "posts, one per day) — and wait for their choice; "
+                    "never assume a plan. Then research competitors "
+                    "with list_competitors / get_research_brief, derive "
+                    "the topics yourself (1 for 1-day, 7 for 7-day, 30 for "
+                    "1-month) and pass them; omit topics to "
+                    "auto-generate from Erudiance's verified website "
+                    "pages. When you pass your own topics, also pass "
+                    "sources: {topic: [{url, verified_at}]} for the "
+                    "pages you actually read for each topic — a live "
+                    "run without sources is refused (RESEARCH_DUE). "
+                    "Never invent a source. Pass mode LIVE for real "
+                    "owner-reviewable "
+                    "output; TEST_FIXTURE (default) runs the same "
+                    "pipeline on fixtures. After the workflow finishes, "
+                    "generate one image in chat for EACH content and "
+                    "show it alongside the server poster — the server "
+                    "poster is text-only, so the image you generate is "
+                    "the picture for that content.",
      "inputSchema": {"type": "object",
                      "properties": {
                          "topics": {"type": "array", "items": _STR,
-                                    "minItems": 7, "maxItems": 7,
-                                    "description": "Optional. Exactly 7 distinct "
-                                                   "non-empty topics. When omitted, "
-                                                   "the server auto-generates 7."},
+                                    "minItems": 1, "maxItems": 30,
+                                    "description": "Optional. 1 distinct "
+                                                   "non-empty topic for "
+                                                   "1-day, 7 for 7-day, 30 "
+                                                   "for 1-month. When omitted, "
+                                                   "the server auto-generates."},
+                         "sources": {"type": "object",
+                                     "description": "Required when you pass "
+                                                    "your own topics for a "
+                                                    "LIVE run: {topic: "
+                                                    "[{url, verified_at}]} "
+                                                    "for the pages you "
+                                                    "actually read. No "
+                                                    "sources are invented."},
+                         "plan": {"type": "string",
+                                  "description": "1-day (1 post, day 1), "
+                                                 "7-day (7 posts, days 1-7, "
+                                                 "default), or 1-month "
+                                                 "(30 posts, days 1-30). Ask "
+                                                 "the user first; never assume."},
                          "cycle": {"type": "string",
                                    "description": "Cycle id, e.g. 20261124."},
                          "operator": {"type": "string",

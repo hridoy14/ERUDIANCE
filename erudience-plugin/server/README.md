@@ -53,7 +53,41 @@ auto topic cites the homepage + its service page as sources
 batch gets a default strategy (7 slots, exactly 1 promotion) plus fresh
 research evidence, so a live run (`mode: "LIVE"`) passes the gates with
 no caller-supplied topics. Jobs record `topic_source:
-"server-generated"`. Explicit topics behave exactly as before.
+"server-generated"`. Explicit topics keep the caller's provenance:
+pass `sources` (`{topic: [{url, verified_at}]}`) for the pages
+actually read and those sources are attached (USER_SUPPLIED) with
+fresh research evidence — without caller-supplied sources no sources
+are invented and the live gates apply as before (RESEARCH_DUE /
+LIVE_SOURCES_REQUIRED). Jobs record `topic_source: "user-supplied"`.
+A default strategy (7 slots, exactly 1 promotion) is used whenever
+the caller passes none.
+
+## Plans — 1-day / 7-day / 1-month (owner order 2026-11-24)
+
+`start_workflow` accepts `plan`: `1-day` (1 post, day 1), `7-day`
+(7 posts, scheduled days 1..7, default), `1-month` (30 posts,
+scheduled days 1..30, one per day). The tool description tells
+Claude to ASK the user which plan they want first and wait for the
+choice — never assume a plan — and, after the workflow finishes,
+to generate one image in chat for EACH content and show it
+alongside the server poster (the server poster is text-only; the
+image is Claude's own). No gate is ever widened: the 7-day plan is
+one verified 7-job batch (`run_batch`, 7 slots, exactly 1
+promotion); the 1-day and 1-month plans run one single job per day,
+each carrying the full 7-slot week strategy (its own slot is its
+day within the week), so the live STRATEGY gate passes exactly as
+for a batch job — the promotion falls on days 7, 14, 21, 28. Daily
+jobs live flat in the plan root (`ER-<cycle>-<ddd>.json`); a
+`plan.json` at the root records the plan and the job list, and
+`get_batch_report` / `get_workflow_status` / `get_content_preview` /
+`get_image_preview` all read daily jobs through it. Auto topics are
+generated once (1 / 7 / 30 distinct from the 34-topic website
+bank), so no topic repeats inside a plan. Each job records
+`scheduled_day` and `scheduled_week` in its state. Explicit topics:
+1 distinct for 1-day, 7 for 7-day, 30 for 1-month — pass `sources`
+(`{topic: [{url, verified_at}]}`) for the pages actually read, or
+the live run is refused (RESEARCH_DUE). Poster downloads serve the
+flat `ER-<cycle>-<nnn>.png` ids (same signed-token auth).
 
 ## Run locally
 

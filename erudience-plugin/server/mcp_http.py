@@ -67,7 +67,7 @@ RATE_LIMIT = 60          # requests per IP per minute
 RATE_WINDOW = 60.0       # seconds
 MAX_BODY = 1_000_000     # bytes
 MAX_STREAM_SECONDS = 300  # max lifetime of one GET /mcp SSE stream
-_IMAGE_ID_RE = re.compile(r"^ER-\d{8}-\d{3}$")  # poster file ids only
+_IMAGE_ID_RE = re.compile(r"^ER-\d{8}-\d{3}$")  # poster file ids only (ER-<cycle>-<nnn>)
 
 _hits = {}               # ip -> [timestamps]
 _hits_lock = threading.Lock()
@@ -226,8 +226,8 @@ class Handler(BaseHTTPRequestHandler):
         token is HMAC-SHA256 of "<content_id>:<exp>" keyed by the
         API key, valid 24h; the key itself never appears in a URL.
         Only files named ER-<cycle>-<nnn>.png from the state dir
-        are served (strict id pattern + resolved-path check), so
-        no path traversal is possible. Note: on the free Render
+        are served (strict id pattern + resolved-path check), so no
+        path traversal is possible. Note: on the free Render
         plan the state dir is ephemeral — a poster downloaded
         after a restart/redeploy is gone (404) and the run must
         be repeated.
@@ -248,8 +248,11 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(404, {"error": "NOT_FOUND"})
             return
         state_dir = Path(mcp_server.STATE_DIR).resolve()
-        file_path = (state_dir / (content_id + ".png")).resolve()
-        if file_path.parent != state_dir or not file_path.is_file():
+        # Posters live flat in the state dir (single-batch and
+        # daily-plan jobs alike). Nothing outside it is ever served.
+        allowed_parent = state_dir
+        file_path = (allowed_parent / (content_id + ".png")).resolve()
+        if file_path.parent != allowed_parent or not file_path.is_file():
             self._send_json(404, {"error": "NOT_FOUND"})
             return
         data = file_path.read_bytes()
