@@ -91,10 +91,11 @@ ALLOWED_OPS = {
     "get_batch_report": chatgpt_bridge_v43.op_get_batch_report,
     "get_audit_report": chatgpt_bridge_v43.op_get_audit_report,
 }
-# Explicit deny, checked BEFORE any dispatch. Owner approval is never
-# available to ChatGPT; only the owner decides (op_submit_owner_decision
-# is not imported, not routed, and not present in openapi.json).
-DENIED_OPS = {"submit_owner_decision"}
+# Explicit deny, checked BEFORE any dispatch. Owner approval and
+# owner removal are never available to ChatGPT; only the owner decides
+# (op_submit_owner_decision / op_remove_content are not imported, not
+# routed, and not present in openapi.json).
+DENIED_OPS = {"submit_owner_decision", "remove_content"}
 
 # Rate limit: timestamps of accepted /ops calls in the last 60 seconds.
 _request_times = deque()
@@ -203,11 +204,16 @@ class Handler(BaseHTTPRequestHandler):
         op_name = self.path[len("/ops/"):].split("?", 1)[0].strip("/")
         # Owner-only deny, BEFORE any dispatch.
         if op_name in DENIED_OPS:
+            if op_name == "remove_content":
+                message = ("Content removal is never available to "
+                           "ChatGPT; only the owner decides.")
+            else:
+                message = ("Owner approval is never available to "
+                           "ChatGPT; only the owner decides.")
             self._send_json(403, {
                 "ok": False,
                 "error": "FORBIDDEN_OWNER_ONLY",
-                "message": "Owner approval is never available to ChatGPT; "
-                           "only the owner decides."})
+                "message": message})
             self._log(403)
             return
         fn = ALLOWED_OPS.get(op_name)

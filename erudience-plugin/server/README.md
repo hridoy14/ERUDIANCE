@@ -26,13 +26,15 @@ ChatGPT may run automation only. It may **never** change anything.
 | `get_batch_report` | Report for a 7-job batch | API key |
 | `get_audit_report` | Evidence-ledger and state audit report | API key |
 | `submit_owner_decision` | **DENIED — 403 `FORBIDDEN_OWNER_ONLY`** | n/a |
+| `remove_content` | **DENIED — 403 `FORBIDDEN_OWNER_ONLY`** | n/a |
 
 ChatGPT can **never**: approve or reject a post (only the owner decides,
-via `op_submit_owner_decision` outside this server), publish or schedule
-anything, or change code, config, or brand policy. There is no endpoint
-here that does any of those things. `submit_owner_decision` is not in
-`openapi.json` at all, and the server rejects it with 403 before any
-dispatch.
+via `op_submit_owner_decision` outside this server), remove a post (only
+the owner removes, via `op_remove_content` outside this server), publish
+or schedule anything, or change code, config, or brand policy. There is
+no endpoint here that does any of those things. Neither
+`submit_owner_decision` nor `remove_content` is in `openapi.json` at all,
+and the server rejects both with 403 before any dispatch.
 
 Other protections: `X-Api-Key` header checked with a constant-time
 compare (missing/wrong → 401 `UNAUTHORIZED`); 60 requests/minute per
@@ -136,6 +138,13 @@ curl -s -X POST $BASE/ops/submit_owner_decision -H "X-Api-Key: $KEY" \
     "decision": "APPROVE", "state_dir": "state"}'
 # expect: HTTP 403 {"ok": false, "error": "FORBIDDEN_OWNER_ONLY", ...}
 
+# 4b. Denied op — owner removal is never available to ChatGPT either
+curl -s -X POST $BASE/ops/remove_content -H "X-Api-Key: $KEY" \
+  -H 'Content-Type: application/json' -d '{
+    "owner": "owner-1", "content_id": "ER-20261124-001",
+    "state_dir": "state"}'
+# expect: HTTP 403 {"ok": false, "error": "FORBIDDEN_OWNER_ONLY", ...}
+
 # 5. No key — unauthorized
 curl -s -X POST $BASE/ops/get_system_status \
   -H 'Content-Type: application/json' -d '{}'
@@ -143,7 +152,7 @@ curl -s -X POST $BASE/ops/get_system_status \
 
 # 6. Spec — no key needed
 curl -s $BASE/openapi.json | python3 -m json.tool | head -20
-# expect: valid OpenAPI 3.0.3, 13 /ops/* paths, no submit_owner_decision
+# expect: valid OpenAPI 3.0.3, 13 /ops/* paths, no submit_owner_decision or remove_content
 ```
 
 ## Connect in ChatGPT
@@ -163,8 +172,8 @@ curl -s $BASE/openapi.json | python3 -m json.tool | head -20
 The same 13 run-only operations, as an MCP server over stdio — for
 Claude Desktop, Claude Code, or any MCP client. No API key is needed:
 the process runs locally as the owner. Same rule as the HTTP server:
-`submit_owner_decision` is NOT a tool and is refused if called by
-name. State is shared with the HTTP server (same state dir), so a job
+`submit_owner_decision` and `remove_content` are NOT tools and are
+refused if called by name. State is shared with the HTTP server (same state dir), so a job
 started over MCP is visible over HTTP and vice versa.
 
 Claude Desktop config (Windows — use YOUR repo path):
@@ -206,7 +215,8 @@ stdio server, plus an API key (the process is remote, not local):
 Owner access rule (decisions.json `claude_access`): no repo access,
 never change any code; only generate content and build images;
 templates may be created and stored as data; all data stays on the
-server. `submit_owner_decision` is NOT a tool and is refused.
+server. `submit_owner_decision` and `remove_content` are NOT tools and
+are refused.
 
 Template store: `save_template` / `list_templates` / `get_template`
 store plain JSON template definitions under

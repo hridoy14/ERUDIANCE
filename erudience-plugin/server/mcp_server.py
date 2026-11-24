@@ -6,8 +6,9 @@ run-only operations as the ChatGPT HTTP server (``server.py``) to Claude
 tools (save/list/get_template — plain JSON data, never code):
 
 - Allowed: the 13 run-only operations in TOOLS below.
-- DENIED: ``submit_owner_decision`` (owner approval) is NOT a tool and
-  is refused if called by name. Only the owner decides, in person.
+- DENIED: ``submit_owner_decision`` (owner approval) and
+  ``remove_content`` (owner removal) are NOT tools and are refused
+  if called by name. Only the owner decides, in person.
   There is NO other write path: no tool here writes code, config,
   brand policy, or publishes/schedules anything.
 
@@ -412,10 +413,11 @@ ALLOWED_OPS = {
     "get_competitor": _get_competitor,
     "get_research_brief": _get_research_brief,
 }
-# Explicit deny, checked BEFORE any dispatch. Owner approval is never
-# available to Claude; only the owner decides (op_submit_owner_decision
-# is not imported, not routed, and not listed as a tool).
-DENIED_OPS = {"submit_owner_decision"}
+# Explicit deny, checked BEFORE any dispatch. Owner approval and
+# owner removal are never available to Claude; only the owner decides
+# (op_submit_owner_decision / op_remove_content are not imported, not
+# routed, and not listed as tools).
+DENIED_OPS = {"submit_owner_decision", "remove_content"}
 
 # ---------------------------------------------------------------------------
 # Tool definitions (name, description, JSON Schema for arguments).
@@ -674,10 +676,15 @@ def _tool_result_text(payload):
 def _dispatch_tool(name, arguments):
     """Run one allowed op. Returns the MCP tools/call result object."""
     if name in DENIED_OPS:
+        if name == "remove_content":
+            message = ("Content removal is never available to Claude; "
+                       "only the owner decides.")
+        else:
+            message = ("Owner approval is never available to Claude; "
+                       "only the owner decides.")
         return _tool_result_text(
             {"ok": False, "error": "FORBIDDEN_OWNER_ONLY",
-             "message": "Owner approval is never available to Claude; "
-                        "only the owner decides."})
+             "message": message})
     fn = ALLOWED_OPS.get(name)
     if fn is None:
         return _tool_result_text(
