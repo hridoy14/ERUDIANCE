@@ -58,6 +58,20 @@ class AutoTopicTests(unittest.TestCase):
    self.assertTrue(state['job'].get('sources'))
    path=state['records']['IMAGE_BUILD']['artifact']['image_path']
    with Image.open(path) as im:self.assertEqual(im.size,(1080,1350))
+ def test_run_batch_auto_topics_live_cwd_differs(self):
+  # Regression: the live gate confines evidence paths to cwd, the
+  # plugin root, or the job's state/evidence dir. On Render the
+  # server cwd is the repo root while the state dir is
+  # /tmp/erudiance-state, so a live run blocked at SOURCE_REVIEW
+  # with PATH_OUTSIDE_ALLOWED_ROOT (all 7 jobs BLOCKED, 4 repairs)
+  # even though the same run passes when cwd == batch root. This
+  # test runs WITHOUT chdir, so it fails before the run_job fix
+  # (job['state_dir'] set from the state file's parent) and passes
+  # after it.
+  r=run_batch(self.root,None,'20261124',mode='LIVE')
+  self.assertTrue(r['auto_topics'])
+  self.assertTrue(all(j['status']=='READY_FOR_OWNER_REVIEW' for j in r['jobs']),r['jobs'])
+  self.assertEqual(r['batch']['batch_status'],'READY_FOR_OWNER_REVIEW')
  def test_run_batch_auto_topics_live(self):
   import os
   old=os.getcwd()
