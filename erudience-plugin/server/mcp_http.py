@@ -33,13 +33,15 @@ Run:
 Endpoints:
   POST /mcp     JSON-RPC 2.0 (single JSON response; notifications get 202)
   GET  /health  public, no key: {"ok": true, ...}
-  GET  /mcp     405 (this endpoint takes POST only)
+  GET  /mcp     SSE stream (text/event-stream) for the connector
+  GET  /image/<content_id>.png  key-protected poster download
 Anything else: 404. Errors never leak stack traces; logs carry
 method + path + status only.
 """
 import hmac
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -63,6 +65,7 @@ RATE_LIMIT = 60          # requests per IP per minute
 RATE_WINDOW = 60.0       # seconds
 MAX_BODY = 1_000_000     # bytes
 MAX_STREAM_SECONDS = 300  # max lifetime of one GET /mcp SSE stream
+_IMAGE_ID_RE = re.compile(r"^ER-\d{8}-\d{3}$")  # poster file ids only
 
 _hits = {}               # ip -> [timestamps]
 _hits_lock = threading.Lock()
@@ -143,6 +146,8 @@ class Handler(BaseHTTPRequestHandler):
                 "owner_decision_exposed": False})
         elif path == "/mcp":
             self._handle_mcp_get_stream()
+        elif path.startswith("/image/"):
+            self._handle_image_download(path)
         else:
             self._send_json(404, {"error": "NOT_FOUND"})
 
@@ -178,6 +183,46 @@ class Handler(BaseHTTPRequestHandler):
             pass
         finally:
             self.close_connection = True
+
+    def _handle_image_download(self, path):
+        """GET /image/<content_id>.png — key-protected poster download.
+
+        Serves only files named ER-<cycle>-<nnn>.png from the state
+        dir. The strict id pattern makes path traversal impossible
+        (no slashes or dots survive it), and the resolved path is
+        checked to stay inside the state dir. Note: on the free
+        Render plan the state dir is ephemeral — a poster downloaded
+        after a restart/redeploy is gone (404) and the run must be
+        repeated.
+        """
+        if not self._authed():
+            self._send_json(401, {"error": "UNAUTHORIZED"})
+            return
+        if _rate_limited(self._client_ip()):
+            self._send_json(429, {"error": "RATE_LIMITED",
+                                  "message": "60 requests/minute per IP"})
+            return
+        name = path[len("/image/"):]
+        if not name.endswith(".png"):
+            self._send_json(404, {"error": "NOT_FOUND"})
+            return
+        content_id = name[:-len(".png")]
+        if not _IMAGE_ID_RE.match(content_id):
+            self._send_json(404, {"error": "NOT_FOUND"})
+            return
+        state_dir = Path(mcp_server.STATE_DIR).resolve()
+        file_path = (state_dir / (content_id + ".png")).resolve()
+        if file_path.parent != state_dir or not file_path.is_file():
+            self._send_json(404, {"error": "NOT_FOUND"})
+            return
+        data = file_path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "image/png")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Content-Disposition",
+                         'inline; filename="%s.png"' % content_id)
+        self.end_headers()
+        self.wfile.write(data)
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
