@@ -87,6 +87,32 @@ class Handler(BaseHTTPRequestHandler):
         sys.stderr.flush()
 
     # -- helpers ---------------------------------------------------------
+    def _drain_body(self):
+        """Read and discard any request body, so leftover bytes cannot
+        poison the next request on this keep-alive connection
+        (HTTP/1.1). A client that sends a body with a GET — Claude's
+        connector does this when it connects (an `initialize` JSON
+        body on GET /mcp) — used to break the connection: the unread
+        bytes were parsed as the next request line and the server
+        answered 400/501, killing the connect flow. If the body is
+        oversized, close the connection instead of leaving bytes
+        behind."""
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        if length <= 0:
+            return
+        if length > MAX_BODY:
+            self.close_connection = True
+            return
+        remaining = length
+        while remaining > 0:
+            chunk = self.rfile.read(min(65536, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+
     def _send_json(self, status, obj):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -104,6 +130,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- routes ----------------------------------------------------------
     def do_GET(self):
+        self._drain_body()
         path = self.path.split("?", 1)[0]
         if path == "/health":
             self._send_json(200, {
@@ -122,17 +149,24 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = self.path.split("?", 1)[0]
         if path != "/mcp":
+            self._drain_body()
             self._send_json(404, {"error": "NOT_FOUND"})
             return
         if not self._authed():
+            self._drain_body()
             self._send_json(401, {"error": "UNAUTHORIZED"})
             return
         if _rate_limited(self._client_ip()):
+            self._drain_body()
             self._send_json(429, {"error": "RATE_LIMITED",
                                   "message": "60 requests/minute per IP"})
             return
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0 or length > MAX_BODY:
+            if length > MAX_BODY:
+                # Oversized body: do not leave bytes behind on the
+                # keep-alive connection.
+                self.close_connection = True
             self._send_json(400, {"jsonrpc": "2.0", "id": None,
                                   "error": {"code": -32600,
                                             "message": "Invalid Request"}})
