@@ -1,4 +1,4 @@
-import unittest,tempfile,json,os,sys,types,hashlib,urllib.error
+import unittest,tempfile,json,os,sys,types,hashlib,sqlite3,urllib.error
 from pathlib import Path
 from unittest import mock
 from PIL import Image
@@ -13,7 +13,7 @@ from chatgpt_bridge_v43 import op_execute_authorized_step,op_resume_workflow
 from chatgpt_bridge_v43 import op_get_agent_report,op_get_content_preview
 from chatgpt_bridge_v43 import op_get_image_preview,op_validate_content
 from chatgpt_bridge_v43 import op_validate_image,op_get_batch_report
-from chatgpt_bridge_v43 import op_submit_owner_decision,op_get_audit_report
+from chatgpt_bridge_v43 import op_submit_owner_decision,op_remove_content,op_get_audit_report
 class Tests(unittest.TestCase):
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();self.p=str(Path(self.tmp.name)/'state.json');start(self.p,{'content_id':'t1','topic':'Voice AI','mode':'TEST_FIXTURE'})
@@ -489,7 +489,7 @@ class ChatGPTOpsTests(unittest.TestCase):
         self.assertFalse(out["ok"])
         self.assertIn("AGENT_REGISTRY", out["message"])
     def test_ops_invalid_input(self):
-        ops = [op_start_workflow, op_get_workflow_status, op_execute_authorized_step, op_resume_workflow, op_get_agent_report, op_get_content_preview, op_get_image_preview, op_validate_content, op_validate_image, op_get_batch_report, op_submit_owner_decision, op_get_audit_report]
+        ops = [op_start_workflow, op_get_workflow_status, op_execute_authorized_step, op_resume_workflow, op_get_agent_report, op_get_content_preview, op_get_image_preview, op_validate_content, op_validate_image, op_get_batch_report, op_submit_owner_decision, op_remove_content, op_get_audit_report]
         for fn in ops:
             with self.subTest(op=fn.__name__):
                 out = fn({})
@@ -502,6 +502,8 @@ class ChatGPTOpsTests(unittest.TestCase):
         out = op_execute_authorized_step({"state_dir": str(self.root), "step": "validate_job", "content_id": "ER-T-001", "operator": ""})
         self.assertEqual(out["error"], "UNAUTHORIZED")
         out = op_submit_owner_decision({"owner": "", "content_id": "ER-T-001", "decision": "APPROVE", "state_dir": str(self.root)})
+        self.assertEqual(out["error"], "UNAUTHORIZED")
+        out = op_remove_content({"owner": "", "content_id": "ER-T-001", "state_dir": str(self.root)})
         self.assertEqual(out["error"], "UNAUTHORIZED")
         out = op_resume_workflow({"state_dir": str(self.root), "content_id": "ER-T-001", "operator": None})
         self.assertEqual(out["error"], "INVALID_INPUT")
@@ -681,6 +683,92 @@ class ChatGPTOpsTests(unittest.TestCase):
         self.assertTrue(out["ok"], out)
         self.assertFalse(out["visually_verified"])
         self.assertEqual(out["image_sha256"], "i" * 64)
+
+class RemoveContentTests(unittest.TestCase):
+    """Owner-only removal (2026-11-25): an unconfirmed or rejected post
+    can be removed by the owner; the state file (which holds the
+    caption) and the poster PNG are deleted, and the evidence ledger
+    keeps the proof. Uses the REAL evidence_store (no fake ledger) so
+    the content_removed event is really recorded."""
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.state_path = str(self.root / "ER-T-001.json")
+        self.png_path = str(self.root / "ER-T-001.png")
+        start(self.state_path, {"content_id": "ER-T-001", "topic": "Voice AI", "mode": "TEST_FIXTURE"})
+    def tearDown(self):
+        self.tmp.cleanup()
+    def _ready_with_png(self):
+        _make_ready_state(self.state_path)
+        Image.new("RGB", (1080, 1350)).save(self.png_path)
+        state = load(self.state_path)
+        state["records"]["IMAGE_BUILD"]["artifact"]["image_path"] = self.png_path
+        save(self.state_path, state)
+    def _ledger_kinds(self):
+        db = sqlite3.connect(str(self.root / "evidence.db"))
+        try:
+            return [r[0] for r in db.execute(
+                "SELECT stage FROM evidence WHERE job_id = ?", ("ER-T-001",))]
+        finally:
+            db.close()
+    def test_remove_ready_job_deletes_state_and_poster(self):
+        self._ready_with_png()
+        out = op_remove_content({"owner": "owner-1", "content_id": "ER-T-001", "reason": "not good", "state_dir": str(self.root)})
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(out["approval_status_before"], "READY_FOR_OWNER_REVIEW")
+        self.assertFalse(Path(self.state_path).exists())
+        self.assertFalse(Path(self.png_path).exists())
+        self.assertIn(self.png_path, out["removed"])
+        self.assertIn(self.state_path, out["removed"])
+        self.assertIn("content_removed", self._ledger_kinds())
+        self.assertTrue(Path(self.root / "evidence.db").exists())
+        out2 = op_remove_content({"owner": "owner-1", "content_id": "ER-T-001", "state_dir": str(self.root)})
+        self.assertFalse(out2["ok"])
+        self.assertEqual(out2["error"], "JOB_NOT_FOUND")
+    def test_remove_rejected_job(self):
+        self._ready_with_png()
+        op_submit_owner_decision({"owner": "owner-1", "content_id": "ER-T-001", "decision": "REJECT", "state_dir": str(self.root)})
+        out = op_remove_content({"owner": "owner-1", "content_id": "ER-T-001", "state_dir": str(self.root)})
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(out["approval_status_before"], "OWNER_REJECTED")
+        self.assertFalse(Path(self.state_path).exists())
+    def test_remove_not_removable(self):
+        # DRAFT: not a reviewable post yet.
+        out = op_remove_content({"owner": "owner-1", "content_id": "ER-T-001", "state_dir": str(self.root)})
+        self.assertFalse(out["ok"])
+        self.assertEqual(out["error"], "JOB_NOT_REMOVABLE")
+        self.assertTrue(Path(self.state_path).exists())
+        # OWNER_APPROVED: may already be published.
+        self._ready_with_png()
+        op_submit_owner_decision({"owner": "owner-1", "content_id": "ER-T-001", "decision": "APPROVE", "state_dir": str(self.root)})
+        out = op_remove_content({"owner": "owner-1", "content_id": "ER-T-001", "state_dir": str(self.root)})
+        self.assertFalse(out["ok"])
+        self.assertEqual(out["error"], "JOB_NOT_REMOVABLE")
+        self.assertTrue(Path(self.state_path).exists())
+        self.assertTrue(Path(self.png_path).exists())
+    def test_remove_missing_job(self):
+        out = op_remove_content({"owner": "owner-1", "content_id": "ER-NOPE", "state_dir": str(self.root)})
+        self.assertFalse(out["ok"])
+        self.assertEqual(out["error"], "JOB_NOT_FOUND")
+    def test_remove_poster_outside_state_dir_is_kept(self):
+        # _make_ready_state points image_path at /tmp/fake.png: outside
+        # the state dir, so it must be left alone — while the state
+        # file itself is still deleted.
+        _make_ready_state(self.state_path)
+        out = op_remove_content({"owner": "owner-1", "content_id": "ER-T-001", "state_dir": str(self.root)})
+        self.assertTrue(out["ok"], out)
+        self.assertFalse(Path(self.state_path).exists())
+        self.assertEqual(out["kept"], [{"path": "/tmp/fake.png", "reason": "outside state_dir"}])
+    def test_remove_ledger_failure_deletes_nothing(self):
+        self._ready_with_png()
+        bare = types.ModuleType("evidence_store")
+        bare.init = lambda path: None
+        _install_fake_module(self, "evidence_store", bare)
+        out = op_remove_content({"owner": "owner-1", "content_id": "ER-T-001", "state_dir": str(self.root)})
+        self.assertFalse(out["ok"])
+        self.assertEqual(out["error"], "EVIDENCE_WRITE_FAILED")
+        self.assertTrue(Path(self.state_path).exists())
+        self.assertTrue(Path(self.png_path).exists())
 
 class SubmitApprovalStatusTests(unittest.TestCase):
  """W1-CONSISTENCY regression (2026-11-24): a TEST_FIXTURE chain completion

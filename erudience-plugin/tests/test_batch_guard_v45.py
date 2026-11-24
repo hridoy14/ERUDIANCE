@@ -134,6 +134,17 @@ class PlanTests(unittest.TestCase):
   agg=plan_summary(self.root)
   self.assertEqual(agg['expected'],1);self.assertEqual(len(agg['items']),1)
   self.assertEqual(agg['batch_status'],'NOT_APPROVED')  # fixture jobs are not READY
+ def test_plan_summary_lists_removed_job(self):
+  # Removing a daily job's state file (op_remove_content) must not
+  # crash the plan report: the job shows under "removed" and the plan
+  # can never read READY while a day is missing.
+  run_plan(self.root,None,'20261124',plan='1-day')
+  (Path(self.root)/'ER-20261124-001.json').unlink()
+  agg=plan_summary(self.root)
+  self.assertEqual(agg['expected'],1);self.assertEqual(agg['items'],[])
+  self.assertEqual(agg['removed'],['ER-20261124-001'])
+  self.assertEqual(agg['ready'],0)
+  self.assertEqual(agg['batch_status'],'NOT_APPROVED')
  def test_run_plan_7day_fixture(self):
   r=run_plan(self.root,None,'20261124',plan='7-day')
   self.assertEqual(r['plan'],'7-day');self.assertEqual(len(r['jobs']),7)
@@ -281,6 +292,18 @@ class AdapterTests(unittest.TestCase):
  def test_summary_surfaces_duplicates(self):
   x=initialise(self.root,[f'Topic {i}' for i in range(7)],'20261121')
   self.assertEqual(x['duplicate_images'],{'status':'PASS','duplicates':[],'checked':0})
+ def test_summary_lists_removed_job(self):
+  # Removing a batch job's state file (op_remove_content) must not
+  # crash the batch report: the job shows under "removed" and the
+  # batch can never read READY while a slot is missing.
+  initialise(self.root,[f'Topic {i}' for i in range(7)],'20261121')
+  manifest=json.loads((Path(self.root)/'manifest.json').read_text())
+  first=manifest['jobs'][0]
+  Path(first['state']).unlink()
+  s=summary(self.root)
+  self.assertEqual(s['removed'],[first['content_id']])
+  self.assertEqual(len(s['items']),6)
+  self.assertEqual(s['batch_status'],'NOT_APPROVED')
  def test_research_due(self):
   d=research_due(self.root)
   self.assertTrue(d['due']);self.assertEqual(d['reason'],'NO_PRIOR_RESEARCH')
