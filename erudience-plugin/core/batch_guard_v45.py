@@ -1465,10 +1465,23 @@ _AUTO_TOPIC_BANK = [
     ('GoHighLevel automation for local businesses', 'https://erudience.com/services/gohighlevel-automation'),
     ('Custom AI systems for logistics firms', 'https://erudience.com/services/custom-ai-systems'),
     ('Multilingual AI lead qualification for exporters', 'https://erudience.com/services/custom-ai-systems'),
+    ('AI voice agents for accountants', 'https://erudience.com/services/voice-ai-systems'),
+    ('AI receptionist for dental clinics', 'https://erudience.com/services/voice-ai-systems'),
+    ('Call automation for letting agents', 'https://erudience.com/services/voice-ai-systems'),
+    ('AI phone orders for restaurants', 'https://erudience.com/services/voice-ai-systems'),
+    ('Support automation for law firms', 'https://erudience.com/services/support-automation'),
+    ('AI support ticket triage for e-commerce teams', 'https://erudience.com/services/support-automation'),
+    ('Workflow automation for estate agents', 'https://erudience.com/services/business-workflow-automation'),
+    ('Business workflow automation for law firms', 'https://erudience.com/services/business-workflow-automation'),
+    ('LinkedIn lead generation for accountants', 'https://erudience.com/services/linkedin-automation'),
+    ('Sales outreach automation for estate agents', 'https://erudience.com/services/sales-outreach-automation'),
+    ('HubSpot automation for estate agents', 'https://erudience.com/services/hubspot-automation'),
+    ('GoHighLevel automation for dental clinics', 'https://erudience.com/services/gohighlevel-automation'),
+    ('Custom AI systems for estate agents', 'https://erudience.com/services/custom-ai-systems'),
 ]
 
 def generate_topics(cycle, count=SLOTS):
-    """7 distinct auto topics for a cycle (deterministic rotation)."""
+    """`count` distinct auto topics for a cycle (deterministic rotation)."""
     bank = _AUTO_TOPIC_BANK
     if len(bank) < count:
         raise ValueError('AUTO_TOPIC_BANK_TOO_SMALL')
@@ -1491,6 +1504,21 @@ def default_auto_strategy():
                   'employee_requirement': 'Staff oversees exceptions'})
     return slots
 
+def _write_research_evidence(root_path, per_topic_sources):
+    """Write research_evidence.json (deduped source URLs) into root,
+    so the live research-due check sees fresh evidence."""
+    evidence = []
+    seen = set()
+    for sources in per_topic_sources.values():
+        for s in sources:
+            if s['url'] not in seen:
+                seen.add(s['url'])
+                evidence.append(dict(s))
+    root_path.mkdir(parents=True, exist_ok=True)
+    (root_path / 'research_evidence.json').write_text(
+        json.dumps(evidence, indent=2), encoding='utf-8')
+
+
 def prepare_auto_batch(root, cycle):
     """Generate auto topics + per-topic sources + default strategy for
     a batch, and write fresh research_evidence.json into root so the
@@ -1500,28 +1528,27 @@ def prepare_auto_batch(root, cycle):
     verified_at = _utc_today().isoformat()
     topics = generate_topics(cycle)
     per_topic = {t: auto_topic_sources(t, verified_at) for t in topics}
-    evidence = []
-    seen = set()
-    for sources in per_topic.values():
-        for s in sources:
-            if s['url'] not in seen:
-                seen.add(s['url'])
-                evidence.append(dict(s))
-    root_path.mkdir(parents=True, exist_ok=True)
-    (root_path / 'research_evidence.json').write_text(
-        json.dumps(evidence, indent=2), encoding='utf-8')
+    _write_research_evidence(root_path, per_topic)
     return topics, per_topic, default_auto_strategy()
 
-def run_batch(root, topics, cycle, strategy=None, mode='TEST_FIXTURE'):
+def run_batch(root, topics, cycle, strategy=None, mode='TEST_FIXTURE',
+              per_topic_sources=None, topic_source_label=None):
     """Run a 7-job batch end to end.
 
     topics=None means auto-topic: 7 topics are generated from
     Erudiance's verified website pages (prepare_auto_batch), with
     per-job sources and a default strategy (7 slots, exactly 1
     promotion) attached, and fresh research_evidence.json written so
-    the live research-due check passes. Explicit topics keep the old
-    behaviour exactly. Live mode refuses to start when research is due
-    and no fresh research_evidence is supplied ({'ok': False, 'error':
+    the live research-due check passes. Explicit topics keep the
+    caller's provenance: per_topic_sources (when given) maps each
+    topic to the [{url, verified_at}] the caller actually read, and
+    those sources are attached (USER_SUPPLIED) with fresh research
+    evidence written — without caller-supplied sources, no sources
+    are invented and the live gates apply as before (RESEARCH_DUE /
+    LIVE_SOURCES_REQUIRED). A strategy is verified FIRST when given;
+    when omitted the default (7 slots, exactly 1 promotion) is used.
+    Live mode refuses to start when research is due and no fresh
+    research_evidence is supplied ({'ok': False, 'error':
     'RESEARCH_DUE'}); fixture mode is exempt. When a strategy is
     provided it is verified FIRST (verify_batch_strategy) and a failing
     strategy raises ValueError 'BATCH_STRATEGY_BLOCKED: ...'. An existing
@@ -1533,12 +1560,21 @@ def run_batch(root, topics, cycle, strategy=None, mode='TEST_FIXTURE'):
     """
     root_path = Path(root)
     auto_topics = False
-    per_topic_sources = {}
+    per_topic = {}
+    topic_source = topic_source_label or 'user-supplied'
     if topics is None:
-        topics, per_topic_sources, auto_strategy = prepare_auto_batch(root_path, cycle)
+        topics, per_topic, auto_strategy = prepare_auto_batch(root_path, cycle)
         auto_topics = True
+        topic_source = 'server-generated'
         if strategy is None:
             strategy = auto_strategy
+    elif per_topic_sources:
+        # Caller-supplied provenance only — never invented. These are
+        # the pages the caller actually read for each topic.
+        per_topic = {t: list(per_topic_sources.get(t, [])) for t in topics}
+        _write_research_evidence(root_path, per_topic)
+    if strategy is None:
+        strategy = default_auto_strategy()
     if mode != 'TEST_FIXTURE':
         due = research_due(root_path)
         if due['due'] and not _fresh_research_evidence(root_path):
@@ -1556,13 +1592,12 @@ def run_batch(root, topics, cycle, strategy=None, mode='TEST_FIXTURE'):
     else:
         initialise(root, topics, cycle)
         manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-        if auto_topics:
-            for job in manifest.get('jobs', []):
-                state = load(job['state'])
-                topic = state['job'].get('topic')
-                state['job']['sources'] = per_topic_sources.get(topic, [])
-                state['job']['topic_source'] = 'server-generated'
-                save(job['state'], state)
+        for job in manifest.get('jobs', []):
+            state = load(job['state'])
+            topic = state['job'].get('topic')
+            state['job']['sources'] = per_topic.get(topic, [])
+            state['job']['topic_source'] = topic_source
+            save(job['state'], state)
     jobs_out = []
     for index, job in enumerate(manifest.get('jobs', [])):
         state_path = job['state']
@@ -1587,3 +1622,282 @@ def run_batch(root, topics, cycle, strategy=None, mode='TEST_FIXTURE'):
     return {'cycle': manifest.get('cycle', cycle), 'jobs': jobs_out,
             'batch': summary(root), 'duplicates': check_duplicate_images(root),
             'topics': list(topics), 'auto_topics': auto_topics}
+
+
+# ---------------------------------------------------------------------------
+# Plans (owner order 2026-11-24, corrected counts 2026-11-24 22:19:
+# "1 din = 1 post, 7 din = 7 post, 1 month = 30 diner 30 ta post" —
+# Claude asks which plan, the user clicks one, the plan runs
+# accordingly). No gate is ever widened:
+#   1-day:   1 single job (day 1) — 1 post + 1 image.
+#   7-day:   1 batch of 7 (run_batch at the root) — 7 posts, days 1..7.
+#   1-month: 30 single jobs (days 1..30) — 30 posts + 30 images,
+#            one per day, all flat in the plan root (content ids
+#            ER-<cycle>-<ddd>). A plan.json at the root records the
+#            plan and the job list; plan_summary() aggregates it.
+# Every daily job carries the full 7-slot week strategy (its own
+# slot is its day within the week), so the live STRATEGY gate —
+# slots==7 and exactly 1 promotion — passes exactly as for a batch
+# job. The promotion falls on days 7, 14, 21, 28. Auto topics are
+# generated ONCE (1 / 7 / 30 distinct from the bank), so no topic
+# repeats inside a plan.
+# ---------------------------------------------------------------------------
+PLANS = {"1-day": 1, "7-day": 7, "1-month": 30}
+
+
+def _daily_job_row(state):
+    """One summary row for a single-job plan state — the same READY
+    rule as summary(): status READY_FOR_OWNER_REVIEW + a valid
+    1080x1350 PNG + all 17 stage records."""
+    cid = state['job']['content_id']
+    build = state['records'].get('IMAGE_BUILD', {}).get('artifact', {})
+    path = build.get('image_path')
+    valid = False
+    if path and Path(path).is_file():
+        try:
+            with Image.open(path) as im:
+                valid = im.format == 'PNG' and im.size == (1080, 1350)
+        except Exception:
+            pass
+    ready = (state['status'] == 'READY_FOR_OWNER_REVIEW' and valid
+             and len(state['records']) == 17)
+    return {'content_id': cid,
+            'status': ('READY_FOR_OWNER_REVIEW' if ready
+                       else 'BLOCKED' if state['status'] == 'BLOCKED'
+                       else 'IN_PROGRESS'),
+            'stage': next_step(state).get('stage'),
+            'image_path': path if ready else None,
+            'reason': (None if ready
+                       else 'NOT_ALL_GATES_AND_INDIVIDUAL_PNG_VERIFIED')}
+
+
+def _check_duplicate_images_for_states(state_paths):
+    """D-17 duplicate check over explicit state files (daily plans
+    have no manifest). Same shape as check_duplicate_images()."""
+    by_hash = {}
+    checked = 0
+    for sp in state_paths:
+        try:
+            state = load(str(sp))
+        except Exception:
+            continue
+        path = state.get('records', {}).get('IMAGE_BUILD', {}).get(
+            'artifact', {}).get('image_path')
+        if not path:
+            continue
+        image_path = Path(path)
+        if not image_path.is_file():
+            continue
+        try:
+            digest = filehash(image_path)
+        except Exception:
+            continue
+        checked += 1
+        by_hash.setdefault(digest, []).append(state['job']['content_id'])
+    duplicates = [{'sha256': h, 'content_ids': ids}
+                  for h, ids in by_hash.items() if len(ids) > 1]
+    return {'status': 'BLOCKED' if duplicates else 'PASS',
+            'duplicates': duplicates, 'checked': checked}
+
+
+def _run_daily_job(root_path, cycle, topic, day, strategy, sources,
+                   topic_source, mode):
+    """Create + run ONE job for one day of a daily plan.
+
+    The job carries the full 7-slot week strategy (its own slot is
+    strategy[(day-1) % 7]) so the live STRATEGY gate passes exactly
+    as for a batch job. Re-running an existing state resumes it
+    (same as a batch manifest resume). Returns the run_job result
+    dict with scheduled_day/scheduled_week stamped on it."""
+    week = (day - 1) // 7 + 1
+    slot_index = (day - 1) % 7
+    cid = 'ER-%s-%03d' % (cycle, day)
+    state_path = root_path / ('%s.json' % cid)
+    if state_path.is_file():
+        state = load(str(state_path))
+    else:
+        start(str(state_path),
+              {'content_id': cid, 'topic': topic, 'cycle': cycle})
+        state = load(str(state_path))
+    state['job']['sources'] = list(sources)
+    state['job']['topic_source'] = topic_source
+    state['job']['strategy'] = list(strategy)
+    state['job']['slot'] = strategy[slot_index]
+    state['job']['scheduled_day'] = day
+    state['job']['scheduled_week'] = week
+    save(str(state_path), state)
+    try:
+        result = run_job(str(state_path), mode=mode)
+    except Exception as exc:
+        result = {'status': 'ERROR', 'content_id': cid,
+                  'error': str(exc), 'repairs': 0, 'trace': [],
+                  'external_writes': 0, 'completed_stages': []}
+    result = dict(result)
+    result['scheduled_day'] = day
+    result['scheduled_week'] = week
+    return result
+
+
+def _stamp_schedule(root, schedule):
+    """Record scheduled_day / scheduled_week on each job state in a
+    batch dir. schedule is a list of (content_id, day, week) in job
+    order. Schedule is metadata for reporting only — it never gates
+    anything, so stamping after the run is safe."""
+    manifest = json.loads((Path(root) / 'manifest.json').read_text(encoding='utf-8'))
+    by_id = {c: (d, w) for c, d, w in schedule}
+    for job in manifest.get('jobs', []):
+        cid = job.get('content_id')
+        if cid not in by_id:
+            continue
+        day, week = by_id[cid]
+        state = load(job['state'])
+        state['job']['scheduled_day'] = day
+        state['job']['scheduled_week'] = week
+        save(job['state'], state)
+
+
+def plan_summary(root):
+    """Aggregate a daily plan (1-day / 1-month): read plan.json at
+    root, summarise each listed job state, combine. Returns the same
+    shape as summary() plus 'plan' and the schedule. Raises
+    FileNotFoundError when there is no plan.json (caller falls back
+    to summary())."""
+    root_path = Path(root)
+    plan_path = root_path / 'plan.json'
+    if not plan_path.is_file():
+        raise FileNotFoundError('no plan.json in %s' % root)
+    plan = json.loads(plan_path.read_text(encoding='utf-8'))
+    items = []
+    state_paths = []
+    for j in plan.get('jobs', []):
+        sp = root_path / j['state']
+        state_paths.append(sp)
+        state = load(str(sp))
+        items.append(_daily_job_row(state))
+    duplicates = _check_duplicate_images_for_states(state_paths)
+    ready = sum(1 for r in items if r['status'] == 'READY_FOR_OWNER_REVIEW')
+    return {'plan': plan.get('plan'), 'cycle': plan.get('cycle'),
+            'expected': len(items), 'ready': ready, 'items': items,
+            'schedule': plan.get('schedule', []),
+            'duplicate_images': duplicates,
+            'batch_status': ('READY_FOR_OWNER_REVIEW'
+                             if items and ready == len(items)
+                             and not duplicates['duplicates']
+                             else 'NOT_APPROVED')}
+
+
+def run_plan(root, topics, cycle, plan='7-day', strategy=None,
+             mode='TEST_FIXTURE', per_topic_sources=None):
+    """Run a whole plan (1-day / 7-day / 1-month) end to end.
+
+    1-day:   1 single job (day 1) — 1 post + 1 image.
+    7-day:   1 batch of 7 (run_batch at the root) — 7 posts, days 1..7.
+    1-month: 30 single jobs (days 1..30) — 30 posts + 30 images.
+
+    topics=None means auto-topic (1 / 7 / 30 distinct, generated
+    once from the website bank). Explicit topics must match the
+    plan's count and be distinct. per_topic_sources (optional)
+    maps each explicit topic to the [{url, verified_at}] the caller
+    actually read; it is attached per job with fresh research
+    evidence written — without caller-supplied sources, no sources
+    are invented and the live gates apply as before (RESEARCH_DUE /
+    LIVE_SOURCES_REQUIRED). A strategy is verified FIRST when given;
+    when omitted the default (7 slots, exactly 1 promotion) is
+    used. Live mode refuses to start when research is due and no
+    fresh research_evidence is supplied ({'ok': False, 'error':
+    'RESEARCH_DUE'}); fixture mode is exempt. Returns {'plan',
+    'cycle', 'jobs': [...], 'batch': summary() or plan_summary(),
+    'topics', 'auto_topics', 'schedule': [{content_id, day, week,
+    topic}]}.
+    """
+    if plan not in PLANS:
+        raise ValueError('INVALID_PLAN: plan must be 1-day, 7-day or 1-month')
+    root_path = Path(root)
+    want = PLANS[plan]
+    auto_topics = topics is None
+    if topics is None:
+        topics = generate_topics(cycle, want)
+    if (not isinstance(topics, list) or len(topics) != want
+            or len(set(topics)) != want
+            or any(not isinstance(t, str) or not t.strip() for t in topics)):
+        raise ValueError('PLAN_TOPICS_REQUIRED: plan %s needs %d distinct '
+                         'non-empty topics' % (plan, want))
+    if plan == '7-day':
+        # Unchanged batch path: auto topics go through run_batch's
+        # own auto path (topics=None) so sources, strategy and
+        # evidence are attached exactly as a plain batch; explicit
+        # topics pass through with the caller's sources.
+        batch_topics = None if auto_topics else topics
+        out = run_batch(root_path, batch_topics, cycle, strategy=strategy,
+                        mode=mode, per_topic_sources=per_topic_sources)
+        if isinstance(out, dict) and out.get('ok') is False:
+            return out
+        topics = out['topics']
+        schedule = []
+        for idx, job in enumerate(out['jobs']):
+            day = idx + 1
+            schedule.append({'content_id': job.get('content_id'), 'day': day,
+                             'week': 1, 'topic': topics[idx]})
+            job = dict(job)
+            job['scheduled_day'] = day
+            job['scheduled_week'] = 1
+            out['jobs'][idx] = job
+        _stamp_schedule(root_path, [(s['content_id'], s['day'], 1)
+                                    for s in schedule])
+        out['plan'] = plan
+        out['schedule'] = schedule
+        return out
+    # 1-day / 1-month: daily single jobs, one per day.
+    verified_at = _utc_today().isoformat()
+    if auto_topics:
+        per_topic = {t: auto_topic_sources(t, verified_at) for t in topics}
+        topic_source = 'server-generated'
+    elif per_topic_sources:
+        # Caller-supplied provenance only — never invented.
+        per_topic = {t: list(per_topic_sources.get(t, [])) for t in topics}
+        topic_source = 'user-supplied'
+    else:
+        per_topic = {t: [] for t in topics}
+        topic_source = 'user-supplied'
+    if strategy is None:
+        strategy = default_auto_strategy()
+    else:
+        check = verify_batch_strategy(root_path, strategy)
+        if check['status'] != 'PASS':
+            raise ValueError('BATCH_STRATEGY_BLOCKED: ' + '; '.join(check['errors']))
+    if any(per_topic.values()):
+        _write_research_evidence(root_path, per_topic)
+    if mode != 'TEST_FIXTURE':
+        due = research_due(root_path)
+        if due['due'] and not _fresh_research_evidence(root_path):
+            return {'ok': False, 'error': 'RESEARCH_DUE', 'research_due': due}
+    _record_event(root_path, 'PLAN-%s' % cycle, 'PLAN_START',
+                  {'cycle': cycle, 'plan': plan, 'mode': mode,
+                   'auto_topics': auto_topics})
+    jobs_out = []
+    schedule = []
+    plan_jobs = []
+    for idx, topic in enumerate(topics):
+        day = idx + 1
+        week = (day - 1) // 7 + 1
+        result = _run_daily_job(root_path, cycle, topic, day, strategy,
+                                per_topic.get(topic, []), topic_source, mode)
+        jobs_out.append(result)
+        schedule.append({'content_id': result.get('content_id'),
+                         'day': day, 'week': week, 'topic': topic})
+        plan_jobs.append({'content_id': result.get('content_id'),
+                          'state': '%s.json' % result.get('content_id'),
+                          'day': day, 'week': week, 'topic': topic})
+    _post_delivery_analytics(root_path, jobs_out)
+    (root_path / 'plan.json').write_text(json.dumps(
+        {'plan': plan, 'cycle': cycle, 'kind': 'daily',
+         'jobs': plan_jobs, 'schedule': schedule},
+        indent=2, ensure_ascii=False), encoding='utf-8')
+    _record_event(root_path, 'PLAN-%s' % cycle, 'PLAN_COMPLETE',
+                  {'cycle': cycle, 'plan': plan,
+                   'passed': sum(1 for j in jobs_out if j.get('status') in ('TEST_FIXTURE_PASS', 'READY_FOR_OWNER_REVIEW')),
+                   'blocked': sum(1 for j in jobs_out if j.get('status') == 'BLOCKED')})
+    return {'plan': plan, 'cycle': cycle, 'jobs': jobs_out,
+            'batch': plan_summary(root_path),
+            'topics': list(topics), 'auto_topics': auto_topics,
+            'schedule': schedule}

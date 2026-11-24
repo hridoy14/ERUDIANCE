@@ -315,13 +315,19 @@ def parse_command(text):
 
 
 def _job_state_path(state_dir, content_id):
-    """Return (Path|None, error_code|None). Rejects separators/traversal."""
+    """Return (Path|None, error_code|None). Rejects separators/traversal.
+
+    Jobs live flat as <state_dir>/<content_id>.json — single-batch
+    jobs (ER-<cycle>-<nnn>) and daily-plan jobs (ER-<cycle>-<ddd>,
+    one per day) alike. Nothing outside state_dir is ever reached.
+    """
     if not isinstance(content_id, str) or not content_id.strip():
         return None, "INVALID_INPUT"
     cid = content_id.strip()
     if "/" in cid or "\\" in cid or ".." in cid:
         return None, "INVALID_INPUT"
-    return Path(state_dir) / ("%s.json" % cid), None
+    flat = Path(state_dir) / ("%s.json" % cid)
+    return flat, None
 
 
 def _resolve_allowed_path(path, state_dir):
@@ -423,33 +429,62 @@ def _dispatch_action(action, args, state_dir, owner, trace):
         topics = args.get("topics")
         if isinstance(topics, str):
             topics = [t.strip() for t in topics.split(",") if t.strip()]
-        # topics=None means auto-topic: run_batch generates 7 topics
-        # from Erudiance's verified website pages. Explicit topics
-        # are still validated exactly as before.
-        if topics is not None and (not isinstance(topics, list) or len(topics) != 7
-                or len(set(topics)) != 7
+        # Plan: 1-day (1 post, day 1), 7-day (7 posts, days 1..7),
+        # 1-month (30 posts, days 1..30). Default 7-day.
+        plan = args.get("plan", "7-day")
+        if plan not in ("1-day", "7-day", "1-month"):
+            return ("INVALID_INPUT",
+                    {"detail": "START requires plan: 1-day, 7-day or 1-month"},
+                    "INVALID_INPUT", "START requires plan: 1-day, 7-day or 1-month")
+        want = {"1-day": 1, "7-day": 7, "1-month": 30}[plan]
+        # sources (optional): caller-supplied provenance, a dict
+        # topic -> [{url, verified_at}] for the pages the caller
+        # actually read. No sources are ever invented: without them
+        # the live gates apply as before (RESEARCH_DUE /
+        # LIVE_SOURCES_REQUIRED).
+        sources = args.get("sources")
+        if sources is not None:
+            if not isinstance(sources, dict) or any(
+                    not isinstance(v, list) or any(
+                        not isinstance(s, dict)
+                        or not isinstance(s.get("url"), str)
+                        or not s.get("url").strip()
+                        or not isinstance(s.get("verified_at"), str)
+                        or not s.get("verified_at").strip()
+                        for s in v)
+                    for v in sources.values()):
+                return ("INVALID_INPUT",
+                        {"detail": "START requires sources: {topic: [{url, verified_at}]}"},
+                        "INVALID_INPUT", "START requires sources: {topic: [{url, verified_at}]}")
+        # topics=None means auto-topic: run_plan generates topics from
+        # Erudiance's verified website pages. Explicit topics are
+        # validated against the plan's count.
+        if topics is not None and (not isinstance(topics, list) or len(topics) != want
+                or len(set(topics)) != want
                 or any(not isinstance(t, str) or not t.strip() for t in topics)):
             return ("INVALID_INPUT",
-                    {"detail": "START requires topics: a list of 7 distinct non-empty strings"},
-                    "INVALID_INPUT", "START requires topics: 7 distinct non-empty strings")
+                    {"detail": "START requires topics: a list of %d distinct non-empty strings for plan %s" % (want, plan)},
+                    "INVALID_INPUT", "START requires topics: %d distinct non-empty strings" % want)
         cycle = args.get("cycle")
         if not isinstance(cycle, str) or not cycle.strip():
             return ("INVALID_INPUT",
                     {"detail": "START requires cycle: a non-empty string"},
                     "INVALID_INPUT", "START requires cycle")
-        run_batch, err = _load_orchestrator_function("run_batch")
+        run_plan, err = _load_orchestrator_function("run_plan")
         if err is not None:
             return (err["error"], {"detail": err["message"]}, err["error"], err["message"])
         try:
-            out = run_batch(state_dir, topics, cycle.strip(),
-                            strategy=args.get("strategy"),
-                            mode=args.get("mode", "TEST_FIXTURE"))
+            out = run_plan(state_dir, topics, cycle.strip(), plan,
+                           strategy=args.get("strategy"),
+                           mode=args.get("mode", "TEST_FIXTURE"),
+                           per_topic_sources=sources)
         except Exception as e:
-            return ("ORCHESTRATOR_ERROR", {"detail": "run_batch failed: %s" % e},
-                    "ORCHESTRATOR_ERROR", "run_batch failed: %s" % e)
+            return ("ORCHESTRATOR_ERROR", {"detail": "run_plan failed: %s" % e},
+                    "ORCHESTRATOR_ERROR", "run_plan failed: %s" % e)
         resolved = out.get("topics", topics) if isinstance(out, dict) else topics
         trace.append(_trace_event(action, "BATCH_STARTED",
-                                  {"cycle": cycle, "topics": resolved}))
+                                  {"cycle": cycle, "plan": plan,
+                                   "topics": resolved}))
         return ("STARTED", out if isinstance(out, dict) else {"result": out}, None, None)
 
     if action == "TEST":
@@ -491,6 +526,36 @@ def _dispatch_action(action, args, state_dir, owner, trace):
                      "state_path": str(path)}, None, None)
         manifest = Path(state_dir) / "manifest.json"
         if not manifest.is_file():
+            # No single-batch manifest: a daily plan (1-day / 1-month)
+            # reports its jobs from plan.json instead.
+            if (Path(state_dir) / "plan.json").is_file():
+                plan_fn, perr = _load_orchestrator_function("plan_summary")
+                if perr is not None:
+                    return (perr["error"], {"detail": perr["message"]},
+                            perr["error"], perr["message"])
+                try:
+                    plan_report = plan_fn(state_dir)
+                except Exception as e:
+                    return ("STATE_ERROR",
+                            {"detail": "plan summary failed: %s" % e},
+                            "STATE_ERROR", "plan summary failed: %s" % e)
+                jobs = []
+                for row in plan_report.get("items", []):
+                    try:
+                        p, _e = _job_state_path(state_dir, row["content_id"])
+                        st = load(str(p))
+                        jobs.append({"content_id": st["job"]["content_id"],
+                                     "status": st.get("status"),
+                                     "approval_status": st.get("approval_status", "DRAFT"),
+                                     "stage": next_step(st).get("stage"),
+                                     "index": st.get("index")})
+                    except Exception as e:
+                        jobs.append({"content_id": row.get("content_id"),
+                                     "error": str(e)})
+                return ("OK", {"cycle": plan_report.get("cycle"),
+                               "plan": plan_report.get("plan"),
+                               "jobs": jobs, "job_count": len(jobs)},
+                        None, None)
             return ("JOB_NOT_FOUND",
                     {"detail": "no manifest.json in state_dir and no content_id given"},
                     "JOB_NOT_FOUND", "no manifest.json in state_dir and no content_id given")
@@ -1201,18 +1266,26 @@ def op_start_workflow(payload):
     if err:
         return err
     # topics is optional: omitted/None means auto-topic (the server
-    # generates 7 topics from Erudiance's verified website pages).
+    # generates topics from Erudiance's verified website pages).
+    # plan is optional: 1-day (1 post, day 1), 7-day (7 posts, days
+    # 1..7, default), 1-month (30 posts, days 1..30).
+    plan = payload.get("plan", "7-day")
+    if plan not in ("1-day", "7-day", "1-month"):
+        return _op_error("INVALID_INPUT",
+                         "plan must be 1-day, 7-day or 1-month")
+    want = {"1-day": 1, "7-day": 7, "1-month": 30}[plan]
     topics = payload.get("topics")
-    if topics is not None and (not isinstance(topics, list) or len(topics) != 7
-            or len(set(topics)) != 7
+    if topics is not None and (not isinstance(topics, list) or len(topics) != want
+            or len(set(topics)) != want
             or any(not isinstance(t, str) or not t.strip() for t in topics)):
         return _op_error("INVALID_INPUT",
-                         "topics must be a list of 7 distinct non-empty strings")
+                         "topics must be a list of %d distinct non-empty strings for plan %s" % (want, plan))
     if not isinstance(payload["cycle"], str) or not payload["cycle"].strip():
         return _op_error("INVALID_INPUT", "cycle must be a non-empty string")
     out = dispatch_command(CANONICAL_COMMAND,
                            {"action": "START", "topics": topics,
-                            "cycle": payload["cycle"],
+                            "cycle": payload["cycle"], "plan": plan,
+                            "sources": payload.get("sources"),
                             "strategy": payload.get("strategy"),
                             "mode": payload.get("mode", "TEST_FIXTURE")},
                            payload["state_dir"], owner=payload["operator"])
@@ -1303,9 +1376,22 @@ def op_get_agent_report(payload):
         return _op_error(err2["error"], err2["message"])
     try:
         report = summary_fn(state_dir)
-    except FileNotFoundError as e:
-        return _op_error("BATCH_NOT_FOUND",
-                         "no batch manifest in state_dir: %s" % e)
+    except FileNotFoundError:
+        # No single-batch manifest: a daily plan (1-day / 1-month)
+        # aggregates its jobs from plan.json at the root. If the
+        # plan helper itself is unavailable there is still no batch
+        # to report — BATCH_NOT_FOUND, not a loader error.
+        plan_fn, err3 = _load_orchestrator_function("plan_summary")
+        if err3 is not None:
+            return _op_error("BATCH_NOT_FOUND",
+                             "no batch manifest or plan in state_dir")
+        try:
+            report = plan_fn(state_dir)
+        except FileNotFoundError as e:
+            return _op_error("BATCH_NOT_FOUND",
+                             "no batch manifest or plan in state_dir: %s" % e)
+        except Exception as e:
+            return _op_error("ORCHESTRATOR_ERROR", "plan summary failed: %s" % e)
     except Exception as e:
         return _op_error("ORCHESTRATOR_ERROR", "summary failed: %s" % e)
     return {"ok": True, "report": report, "error": None}
@@ -1453,9 +1539,22 @@ def op_get_batch_report(payload):
         return _op_error(err2["error"], err2["message"])
     try:
         report = summary_fn(payload["state_dir"])
-    except FileNotFoundError as e:
-        return _op_error("BATCH_NOT_FOUND",
-                         "no batch manifest in state_dir: %s" % e)
+    except FileNotFoundError:
+        # No single-batch manifest: a daily plan (1-day / 1-month)
+        # aggregates its jobs from plan.json at the root. If the
+        # plan helper itself is unavailable there is still no batch
+        # to report — BATCH_NOT_FOUND, not a loader error.
+        plan_fn, err3 = _load_orchestrator_function("plan_summary")
+        if err3 is not None:
+            return _op_error("BATCH_NOT_FOUND",
+                             "no batch manifest or plan in state_dir")
+        try:
+            report = plan_fn(payload["state_dir"])
+        except FileNotFoundError as e:
+            return _op_error("BATCH_NOT_FOUND",
+                             "no batch manifest or plan in state_dir: %s" % e)
+        except Exception as e:
+            return _op_error("ORCHESTRATOR_ERROR", "plan summary failed: %s" % e)
     except Exception as e:
         return _op_error("ORCHESTRATOR_ERROR", "summary failed: %s" % e)
     return {"ok": True, "report": report, "error": None}
