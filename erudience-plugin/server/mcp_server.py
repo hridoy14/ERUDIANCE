@@ -37,10 +37,13 @@ Optional env:
 Protocol: MCP 2024-11-05 (initialize, ping, tools/list, tools/call).
 Logging goes to stderr only — stdout is the protocol.
 """
+import hashlib
+import hmac
 import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -341,19 +344,34 @@ def _get_research_brief(arguments):
 def _op_get_image_preview(args):
     """get_image_preview plus a download URL for the poster PNG.
 
-    The bridge op returns metadata only. When ERUDIANCE_PUBLIC_URL is
-    set (the deployed server's public URL), add the key-protected
+    The bridge op returns metadata only. When ERUDIANCE_PUBLIC_URL
+    is set (the deployed server's public URL), add a key-protected
     download link served by mcp_http.py (GET /image/<id>.png), so
     Claude can hand the user a link to the actual poster file. With
     no public URL configured (local stdio use), no link is added.
+
+    The link carries a signed token (HMAC of the content id +
+    expiry, keyed by ERUDIANCE_API_KEY, valid 24h), NOT the key
+    itself — a plain tap in a browser cannot send the X-Api-Key
+    header, so a header-only link would be useless in chat. Anyone
+    holding the link can fetch that one poster until it expires;
+    posters are marketing material, so that is acceptable.
     """
     result = chatgpt_bridge_v43.op_get_image_preview(args)
     if isinstance(result, dict) and result.get("ok") and result.get("image_path"):
         base = os.environ.get("ERUDIANCE_PUBLIC_URL", "").rstrip("/")
-        if base and result.get("content_id"):
+        secret = os.environ.get("ERUDIANCE_API_KEY", "")
+        if base and secret and result.get("content_id"):
+            content_id = result["content_id"]
+            exp = int(time.time()) + 24 * 3600
+            token = hmac.new(
+                secret.encode(),
+                ("%s:%d" % (content_id, exp)).encode(),
+                hashlib.sha256).hexdigest()
             result = dict(result)
-            result["download_url"] = "%s/image/%s.png" % (
-                base, result["content_id"])
+            result["download_url"] = (
+                "%s/image/%s.png?token=%s&exp=%d"
+                % (base, content_id, token, exp))
     return result
 
 
