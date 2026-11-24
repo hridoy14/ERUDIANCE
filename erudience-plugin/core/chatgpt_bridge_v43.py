@@ -1667,6 +1667,99 @@ def op_submit_owner_decision(payload):
             "verified": True, "error": None}
 
 
+def op_remove_content(payload):
+    """Owner-only removal of one unconfirmed post.
+
+    Requires {owner, content_id, state_dir} (optional reason). Only
+    jobs waiting for the owner (approval_status READY_FOR_OWNER_REVIEW)
+    or already rejected (OWNER_REJECTED) can be removed: an approved
+    post may already be published, and a draft is not a reviewable
+    post yet. The removal is recorded in the evidence ledger FIRST
+    (a content_removed event) — if the ledger cannot record it,
+    nothing is deleted. Then the job state file (which holds the
+    caption) and the poster PNG are deleted, but ONLY when they sit
+    inside state_dir; a poster path pointing outside state_dir is
+    left alone and reported under "kept". The evidence ledger itself
+    (evidence.db) is never deleted: it is the proof the post existed
+    and who removed it. Batch/plan reports list the removed job under
+    "removed" instead of crashing (see summary/plan_summary).
+
+    Never exposed to Claude/ChatGPT: DENIED_OPS in mcp_server.py and
+    server.py refuse it with FORBIDDEN_OWNER_ONLY, exactly like
+    op_submit_owner_decision. The owner calls it directly, in person.
+    """
+    if not isinstance(payload, dict):
+        return _op_error("INVALID_INPUT", "payload must be an object")
+    err = _op_invalid_if_missing(payload, ["content_id", "state_dir"])
+    if err:
+        return err
+    err = _op_identity(payload, "owner")
+    if err:
+        return err
+    owner = payload["owner"]
+    content_id = payload["content_id"]
+    state_dir = payload["state_dir"]
+    state_path, perr = _job_state_path(state_dir, content_id)
+    if perr is not None or not state_path.is_file():
+        return _op_error("JOB_NOT_FOUND",
+                         "no state file for content_id %r" % content_id)
+    state = load(str(state_path))
+    approval_before = state.get("approval_status", "DRAFT")
+    if approval_before not in ("READY_FOR_OWNER_REVIEW", "OWNER_REJECTED"):
+        return {"ok": False, "error": "JOB_NOT_REMOVABLE",
+                "message": ("approval_status is %r; only unconfirmed "
+                            "(READY_FOR_OWNER_REVIEW) or rejected "
+                            "(OWNER_REJECTED) posts can be removed — an "
+                            "approved post may already be published"
+                            % approval_before),
+                "approval_status": approval_before,
+                "content_id": content_id}
+    build = ((state.get("records", {}) or {}).get("IMAGE_BUILD", {})
+             .get("artifact", {}) or {})
+    image_path = build.get("image_path")
+    removed = []
+    kept = []
+    # Ledger first: the removal must be provable before anything is
+    # deleted. The ledger (evidence.db) itself is never deleted.
+    ledger = _audit_event(state_dir, content_id, "content_removed",
+                          {"ok": True, "content_id": content_id,
+                           "actor": owner, "reason": payload.get("reason"),
+                           "approval_status_before": approval_before,
+                           "image_path": image_path})
+    if ledger.get("ledger") != "recorded":
+        return _op_error("EVIDENCE_WRITE_FAILED",
+                         "removal NOT recorded, nothing deleted: %s"
+                         % ledger.get("reason", "ledger unavailable"))
+    if isinstance(image_path, str) and image_path.strip():
+        resolved, rerr = _resolve_under_state_dir(image_path, state_dir)
+        if rerr is not None:
+            kept.append({"path": image_path, "reason": "outside state_dir"})
+        elif not resolved.is_file():
+            kept.append({"path": image_path, "reason": "file not found"})
+        else:
+            try:
+                resolved.unlink()
+                removed.append(str(resolved))
+            except OSError as e:
+                kept.append({"path": str(resolved), "reason": str(e)})
+    try:
+        state_path.unlink()
+        removed.append(str(state_path))
+    except OSError as e:
+        return {"ok": False, "error": "STATE_DELETE_FAILED",
+                "message": "state file could not be deleted: %s" % e,
+                "content_id": content_id,
+                "approval_status": approval_before,
+                "removed": removed, "kept": kept}
+    _op_audit(payload, "content_removed", True,
+              {"content_id": content_id, "removed": removed, "kept": kept})
+    return {"ok": True, "content_id": content_id,
+            "approval_status_before": approval_before,
+            "removed": removed, "kept": kept,
+            "ledger_event_id": ledger.get("event_id"),
+            "error": None}
+
+
 def op_get_audit_report(payload):
     """Read the evidence ledger (if present) and bridge state files.
 

@@ -435,8 +435,14 @@ def initialise(root, topics, cycle):
 
 def summary(root):
     manifest=json.loads((Path(root)/'manifest.json').read_text(encoding='utf8'))
-    rows=[];seen=set()
+    rows=[];seen=set();removed=[]
     for job in manifest['jobs']:
+        # A removed job (state file deleted via op_remove_content) is
+        # reported under "removed", never a crash: the batch is then
+        # short of SLOTS, so batch_status stays NOT_APPROVED.
+        if not Path(job['state']).is_file():
+            removed.append(job.get('content_id'))
+            continue
         state=load(job['state']); cid=state['job']['content_id']
         if cid in seen:raise ValueError('DUPLICATE_CONTENT_ID')
         seen.add(cid)
@@ -450,7 +456,7 @@ def summary(root):
         rows.append({'content_id':cid,'status':'READY_FOR_OWNER_REVIEW' if ready else 'BLOCKED' if state['status']=='BLOCKED' else 'IN_PROGRESS','stage':next_step(state).get('stage'),'image_path':path if ready else None,'reason':None if ready else 'NOT_ALL_GATES_AND_INDIVIDUAL_PNG_VERIFIED'})
     paths=[r['image_path'] for r in rows if r['image_path']]
     if len(paths)!=len(set(paths)):raise ValueError('REUSED_IMAGE_PATH')
-    result={'cycle':manifest['cycle'],'expected':SLOTS,'ready':sum(r['status']=='READY_FOR_OWNER_REVIEW' for r in rows),'items':rows,'batch_status':'READY_FOR_OWNER_REVIEW' if len(rows)==SLOTS and all(r['status']=='READY_FOR_OWNER_REVIEW' for r in rows) else 'NOT_APPROVED'}
+    result={'cycle':manifest['cycle'],'expected':SLOTS,'ready':sum(r['status']=='READY_FOR_OWNER_REVIEW' for r in rows),'items':rows,'removed':removed,'batch_status':'READY_FOR_OWNER_REVIEW' if len(rows)==SLOTS and all(r['status']=='READY_FOR_OWNER_REVIEW' for r in rows) else 'NOT_APPROVED'}
     duplicates=check_duplicate_images(root)
     result['duplicate_images']=duplicates
     if duplicates['duplicates']:
@@ -1768,20 +1774,29 @@ def plan_summary(root):
         raise FileNotFoundError('no plan.json in %s' % root)
     plan = json.loads(plan_path.read_text(encoding='utf-8'))
     items = []
+    removed = []
     state_paths = []
     for j in plan.get('jobs', []):
         sp = root_path / j['state']
+        # A removed job (state file deleted via op_remove_content) is
+        # reported under "removed", never a crash — and it blocks a
+        # READY verdict, because the plan is now short of its days.
+        if not sp.is_file():
+            removed.append(j.get('content_id'))
+            continue
         state_paths.append(sp)
         state = load(str(sp))
         items.append(_daily_job_row(state))
     duplicates = _check_duplicate_images_for_states(state_paths)
     ready = sum(1 for r in items if r['status'] == 'READY_FOR_OWNER_REVIEW')
     return {'plan': plan.get('plan'), 'cycle': plan.get('cycle'),
-            'expected': len(items), 'ready': ready, 'items': items,
+            'expected': len(plan.get('jobs', [])), 'ready': ready,
+            'items': items, 'removed': removed,
             'schedule': plan.get('schedule', []),
             'duplicate_images': duplicates,
             'batch_status': ('READY_FOR_OWNER_REVIEW'
                              if items and ready == len(items)
+                             and not removed
                              and not duplicates['duplicates']
                              else 'NOT_APPROVED')}
 
