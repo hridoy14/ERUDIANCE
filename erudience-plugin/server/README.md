@@ -241,6 +241,20 @@ stream → 200 with `: connected`, no key → 401, GET with JSON body
 The old `/tmp/repro_get_body.py` 405 expectation is superseded by
 this test. Full plugin suite 247/247 + 48/48 OK after the change.
 
+Live-run path-confinement fix (2026-11-24): a LIVE run on Render
+blocked all 7 jobs at SOURCE_REVIEW with PATH_OUTSIDE_ALLOWED_ROOT
+(4 repairs each). Root cause: the live gate (D-15) allows file
+paths only under cwd, the plugin root, or the job's state/evidence
+dir — and `run_job` never recorded the state dir on the job, so on
+Render (server cwd = repo root, state dir = /tmp/erudiance-state)
+the inspection-evidence path was outside every allowed root. Local
+runs and tests had masked it because they run with cwd == batch
+root. Fix (core/batch_guard_v45.py `run_job`): the state file's
+parent is now recorded as job['state_dir'] and job['evidence_dir'].
+Regression test test_run_batch_auto_topics_live_cwd_differs runs a
+live auto batch WITHOUT chdir and passes only with the fix. Full
+suite 248/248 + 48/48 OK after the fix.
+
 Poster download (2026-11-24): `GET /image/<content_id>.png`
 serves the poster PNG from the state dir. Auth is either the
 X-Api-Key header or a signed token in the URL
