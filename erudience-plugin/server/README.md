@@ -214,7 +214,19 @@ initialize, ping, notification (202), tools/list (16 tools),
 template save/list/get, bad slug/kind rejected, missing template
 (NOT_FOUND), `start_workflow` TEST_FIXTURE (7 jobs
 `TEST_FIXTURE_PASS`). Competitor tools tested separately
-(`/tmp/test_mcp_competitors.py`, stdio + HTTP).
+(`/tmp/test_mcp_competitors.py`, stdio + HTTP, 31/31 — the file was
+later lost to a VM /tmp wipe; re-verified 2026-11-24 with the compact
+`/tmp/test_mcp_smoke.py`, 14/14).
+
+GET-body fix (2026-11-24): Claude's connector sends a GET /mcp
+carrying an `initialize` JSON body when it connects. The server used
+to answer 405 without reading that body, which poisoned the
+keep-alive connection — the leftover bytes were parsed as the next
+request line and the server answered 400/501, so the connect flow
+failed. `do_GET` (and the early-return paths of `do_POST`) now drain
+any request body first. Reproduced before the fix and verified after
+with `/tmp/repro_get_body.py` (GET /mcp with body → 405, then
+GET /health on the same connection → 200).
 
 ## Deployment — LIVE
 
