@@ -38,6 +38,7 @@ Endpoints:
 Anything else: 404. Errors never leak stack traces; logs carry
 method + path + status only.
 """
+import hashlib
 import hmac
 import json
 import os
@@ -47,6 +48,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 SERVER_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SERVER_DIR))
@@ -129,6 +131,36 @@ class Handler(BaseHTTPRequestHandler):
         key = self.headers.get("X-Api-Key")
         return bool(key) and hmac.compare_digest(key, API_KEY)
 
+    def _valid_download_token(self):
+        """Check the signed ?token=&exp= on a /image/ URL.
+
+        Token = HMAC-SHA256("<content_id>:<exp>", key=API_KEY).
+        Valid only for the id in the path and while exp is in the
+        future. Returns False for a missing/expired/tampered token.
+        """
+        parts = urlsplit(self.path)
+        name = parts.path[len("/image/"):]
+        if not name.endswith(".png"):
+            return False
+        content_id = name[:-len(".png")]
+        if not _IMAGE_ID_RE.match(content_id):
+            return False
+        query = parse_qs(parts.query)
+        tokens = query.get("token", [])
+        exps = query.get("exp", [])
+        if len(tokens) != 1 or len(exps) != 1:
+            return False
+        try:
+            exp = int(exps[0])
+        except ValueError:
+            return False
+        if exp <= int(time.time()):
+            return False
+        expected = hmac.new(
+            API_KEY.encode(), ("%s:%d" % (content_id, exp)).encode(),
+            hashlib.sha256).hexdigest()
+        return hmac.compare_digest(tokens[0], expected)
+
     def _client_ip(self):
         return self.client_address[0]
 
@@ -185,17 +217,22 @@ class Handler(BaseHTTPRequestHandler):
             self.close_connection = True
 
     def _handle_image_download(self, path):
-        """GET /image/<content_id>.png — key-protected poster download.
+        """GET /image/<content_id>.png — poster download.
 
-        Serves only files named ER-<cycle>-<nnn>.png from the state
-        dir. The strict id pattern makes path traversal impossible
-        (no slashes or dots survive it), and the resolved path is
-        checked to stay inside the state dir. Note: on the free
-        Render plan the state dir is ephemeral — a poster downloaded
-        after a restart/redeploy is gone (404) and the run must be
-        repeated.
+        Auth is EITHER the X-Api-Key header OR a signed token in
+        the query string (?token=<hmac>&exp=<unix>) — a plain tap
+        in a browser cannot send a header, so the token is what
+        makes the link Claude hands out actually openable. The
+        token is HMAC-SHA256 of "<content_id>:<exp>" keyed by the
+        API key, valid 24h; the key itself never appears in a URL.
+        Only files named ER-<cycle>-<nnn>.png from the state dir
+        are served (strict id pattern + resolved-path check), so
+        no path traversal is possible. Note: on the free Render
+        plan the state dir is ephemeral — a poster downloaded
+        after a restart/redeploy is gone (404) and the run must
+        be repeated.
         """
-        if not self._authed():
+        if not (self._authed() or self._valid_download_token()):
             self._send_json(401, {"error": "UNAUTHORIZED"})
             return
         if _rate_limited(self._client_ip()):
