@@ -62,6 +62,7 @@ PORT = int(os.environ.get("PORT", "8766"))
 RATE_LIMIT = 60          # requests per IP per minute
 RATE_WINDOW = 60.0       # seconds
 MAX_BODY = 1_000_000     # bytes
+MAX_STREAM_SECONDS = 300  # max lifetime of one GET /mcp SSE stream
 
 _hits = {}               # ip -> [timestamps]
 _hits_lock = threading.Lock()
@@ -141,10 +142,42 @@ class Handler(BaseHTTPRequestHandler):
                 "tools": len(mcp_server.TOOLS),
                 "owner_decision_exposed": False})
         elif path == "/mcp":
-            self._send_json(405, {"error": "METHOD_NOT_ALLOWED",
-                                  "message": "/mcp takes POST only"})
+            self._handle_mcp_get_stream()
         else:
             self._send_json(404, {"error": "NOT_FOUND"})
+
+    def _handle_mcp_get_stream(self):
+        """GET /mcp opens the server-to-client SSE stream (MCP
+        Streamable HTTP: the server MAY support it). Claude's
+        connector opens this stream when it connects — answering 405
+        left the connect flow without a stream, and the app reported
+        the connection as failed. The server sends no unsolicited
+        messages yet, so the stream carries only heartbeat comments
+        until the client disconnects or MAX_STREAM_SECONDS elapses."""
+        if not self._authed():
+            self._send_json(401, {"error": "UNAUTHORIZED"})
+            return
+        if _rate_limited(self._client_ip()):
+            self._send_json(429, {"error": "RATE_LIMITED",
+                                  "message": "60 requests/minute per IP"})
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.end_headers()
+        deadline = time.monotonic() + MAX_STREAM_SECONDS
+        try:
+            self.wfile.write(b": connected\n\n")
+            self.wfile.flush()
+            while time.monotonic() < deadline:
+                time.sleep(20)
+                self.wfile.write(b": ping\n\n")
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        finally:
+            self.close_connection = True
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
