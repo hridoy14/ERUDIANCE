@@ -228,6 +228,19 @@ any request body first. Reproduced before the fix and verified after
 with `/tmp/repro_get_body.py` (GET /mcp with body → 405, then
 GET /health on the same connection → 200).
 
+SSE stream for GET /mcp (2026-11-24): the full handshake check
+against the live server showed initialize → 200,
+notifications/initialized → 202, tools/list → 19 tools — but
+GET /mcp still answered 405, and the connector still reported the
+connection as failed. GET /mcp now opens a server-to-client SSE
+stream (`text/event-stream`, `: connected` then a `: ping` heartbeat
+every 20s, max 300s, closes on client disconnect). No unsolicited
+messages are sent yet. Verified with `/tmp/test_mcp_sse.py`, 4/4:
+stream → 200 with `: connected`, no key → 401, GET with JSON body
+→ 200 stream (body drained), server healthy afterwards (19 tools).
+The old `/tmp/repro_get_body.py` 405 expectation is superseded by
+this test. Full plugin suite 247/247 + 48/48 OK after the change.
+
 ## Deployment — LIVE
 
 Deployed 2026-11-24 on Render (free plan):
