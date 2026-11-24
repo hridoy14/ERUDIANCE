@@ -156,14 +156,16 @@ Tested 2026-11-24 with a local MCP client (`/tmp/test_mcp.py`):
 ops + 3 template-store tools, no `submit_owner_decision`),
 `get_system_status`, owner decision denied (`FORBIDDEN_OWNER_ONLY`),
 `start_workflow` TEST_FIXTURE (7 jobs `TEST_FIXTURE_PASS`),
-`get_batch_report`, unknown tool/method errors.
+`get_batch_report`, unknown tool/method errors. The 3
+competitor-research tools below are shared by both transports, so the
+server now exposes 19 tools in total.
 
 Note: claude.ai on the web uses remote MCP servers, which need a
 public HTTPS URL — see the HTTP MCP server below.
 
 ## Claude — HTTP MCP server (`mcp_http.py`)
 
-The same 16 tools over Streamable HTTP (POST `/mcp`) — this is what
+The same 19 tools over Streamable HTTP (POST `/mcp`) — this is what
 claude.ai connects to as a **custom connector**. Same rules as the
 stdio server, plus an API key (the process is remote, not local):
 `ERUDIANCE_API_KEY` must be set or the server refuses to start.
@@ -177,6 +179,22 @@ store plain JSON template definitions under
 `<state-dir>/templates/<slug>.json`. A template is data (name, kind,
 version, blocks) — validated on write, never executed. The slug must
 match `[a-z0-9][a-z0-9-]{0,63}` so no path can escape the store.
+
+## Competitor research — Claude researches, then posts (auto)
+
+`list_competitors` / `get_competitor` / `get_research_brief` read
+`data/competitors.json` — the 83 verified direct competitors (website
+URLs verified; 9 LinkedIn pages verified; tiers 12/61/10; client counts
+only where the agency itself states one — 7 of 83; platforms only where
+a profile was found in search). Read-only data, never changed by
+Claude. Flow: Claude calls `get_research_brief` (Erudiance website
+source pages + competitor summary + honesty rules), researches the
+competitors with `list_competitors` / `get_competitor`, derives 7
+distinct topics, then calls `start_workflow` with those topics and
+mode `LIVE` — posts are built automatically from that research.
+`get_research_brief` also lists the 9 verified Erudiance service pages
+so Claude can cite real sources. Nothing here is in `openapi.json` —
+these 3 tools are MCP-only, for Claude.
 
 Run locally:
 
@@ -195,30 +213,33 @@ initialize, ping, notification (202), tools/list (16 tools),
 `get_system_status`, owner decision denied, unknown tool/method,
 template save/list/get, bad slug/kind rejected, missing template
 (NOT_FOUND), `start_workflow` TEST_FIXTURE (7 jobs
-`TEST_FIXTURE_PASS`).
+`TEST_FIXTURE_PASS`). Competitor tools tested separately
+(`/tmp/test_mcp_competitors.py`, stdio + HTTP).
 
-## Deployment — still pending
+## Deployment — LIVE
 
-There is no deployed URL yet. `render.yaml` (repo root) defines the
-free Render web service for `mcp_http.py`; after connecting the repo
-on Render, set `ERUDIANCE_API_KEY` in the Render dashboard (same key
-goes into the Claude custom connector). Free-plan disk is ephemeral,
-so job state and stored templates do NOT survive a restart/redeploy.
-Until the server is deployed and the first real Claude request
-succeeds through it, nothing here claims a live connection. After
-deployment, replace `https://REPLACE_WITH_DEPLOY_URL` in
-`openapi.json` with the real URL and re-import the spec in ChatGPT.
+Deployed 2026-11-24 on Render (free plan):
+`https://erudiance-mcp-http.onrender.com` — `/health` and `/mcp`.
+Render auto-deploys from GitHub main. `openapi.json` already points
+at the live URL. Free-plan disk is ephemeral, so job state and stored
+templates do NOT survive a restart/redeploy. The first real Claude
+request through the connector has not happened yet — the connector is
+added and the tools are listed, but no workflow has run through it.
 
 ## Files
 
 - `server.py` — stdlib-only ThreadingHTTPServer (13 allowed ops, 1
   explicit deny, key auth, rate limit, safe logging).
 - `mcp_server.py` — stdlib-only MCP server over stdio (13 run ops + 3
-  template-store tools, no API key, owner decision denied). Tested
-  2026-11-24: 12/12 MCP client checks passed.
+  template-store tools + 3 competitor-research tools, no API key,
+  owner decision denied). Tested 2026-11-24: 12/12 MCP client checks passed.
 - `mcp_http.py` — stdlib-only MCP server over Streamable HTTP (POST
-  `/mcp`, same 16 tools, X-Api-Key auth, 60 req/min). For claude.ai
+  `/mcp`, same 19 tools, X-Api-Key auth, 60 req/min). For claude.ai
   custom connectors. Tested 2026-11-24: 24/24 HTTP client checks passed.
+- `data/competitors.json` — 83 verified direct competitors (website,
+  LinkedIn where verified, HQ, services, tier, client count where
+  stated, platforms where found). Read-only research data for the
+  competitor tools.
 - `openapi.json` — OpenAPI 3.0.3 spec for the 13 allowed ops.
 - `decisions.json` — owner decisions record.
 - `state/` — created at first start; job state lives here by default.
