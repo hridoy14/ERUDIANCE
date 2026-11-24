@@ -241,6 +241,22 @@ stream → 200 with `: connected`, no key → 401, GET with JSON body
 The old `/tmp/repro_get_body.py` 405 expectation is superseded by
 this test. Full plugin suite 247/247 + 48/48 OK after the change.
 
+Poster download (2026-11-24): `GET /image/<content_id>.png`
+serves the poster PNG from the state dir (X-Api-Key required;
+only ids matching `ER-<cycle>-<nnn>.png` are served, so no path
+traversal is possible; missing file → 404). `get_image_preview`
+also returns a `download_url` for the poster when
+`ERUDIANCE_PUBLIC_URL` is set (Render: set in `render.yaml` to
+`https://erudiance-mcp-http.onrender.com`), so Claude can hand the
+user the link in chat; without that env var no link is added.
+Verified with `/tmp/test_mcp_download.py`, 11/11: download with
+key → 200 `image/png` (bytes match), no/wrong key → 401, bad ids
+and traversal attempts → 404, missing file → 404, preview
+`download_url` present with the env var and absent without it.
+Limit: on the free Render plan the state dir is ephemeral — a
+poster is gone after a restart/redeploy (404) and the run must be
+repeated. Full plugin suite 247/247 + 48/48 OK after the change.
+
 ## Deployment — LIVE
 
 Deployed 2026-11-24 on Render (free plan):
