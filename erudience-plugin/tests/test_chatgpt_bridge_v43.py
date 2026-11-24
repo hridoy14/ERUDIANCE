@@ -124,9 +124,20 @@ def _fake_run_job(state_path, adapters=None, mode="TEST_FIXTURE"):
     return {"status": "TEST_FIXTURE_PASS", "state_path": str(state_path), "mode": mode}
 
 
+def _fake_run_plan(root, topics, cycle, plan="7-day", strategy=None, mode="TEST_FIXTURE", per_topic_sources=None):
+    if topics is None:
+        want = {"1-day": 1, "7-day": 7, "1-month": 30}[plan]
+        topics = ["Fake topic %d" % i for i in range(1, want + 1)]
+    return _fake_run_batch(root, topics, cycle, strategy=strategy, mode=mode)
+
+
 def _fake_batch_guard_module(with_run_job=True, with_registry=True, summary_error=None):
     mod = types.ModuleType("batch_guard_v45")
     mod.run_batch = _fake_run_batch
+    mod.run_plan = _fake_run_plan
+    def _plan_summary(root):
+        raise FileNotFoundError("no plan.json")
+    mod.plan_summary = _plan_summary
     if with_run_job:
         mod.run_job = _fake_run_job
     mod.verify_batch_strategy = lambda root, strategy: {"valid": True, "strategy": strategy}
@@ -513,6 +524,38 @@ class ChatGPTOpsTests(unittest.TestCase):
         self.assertTrue(out["ok"], out)
         self.assertEqual(out["operation"], "start_workflow")
         self.assertTrue((self.root / "manifest.json").is_file())
+    def test_op_start_workflow_plan_month(self):
+        import importlib
+        sys.modules.pop("batch_guard_v45", None)
+        try:
+            importlib.import_module("batch_guard_v45")
+        except Exception as e:
+            self.skipTest("real batch_guard_v45 not importable: %s" % e)
+        try:
+            out = op_start_workflow({"cycle": "C1", "plan": "1-month", "state_dir": str(self.root), "operator": "op-1"})
+            self.assertTrue(out["ok"], out)
+            self.assertEqual(out["result"]["plan"], "1-month")
+            self.assertEqual(len(out["result"]["jobs"]), 30)
+            self.assertTrue((self.root / "plan.json").is_file())
+            rep = op_get_batch_report({"state_dir": str(self.root)})
+            self.assertTrue(rep["ok"], rep)
+            self.assertEqual(rep["report"]["expected"], 30)
+            self.assertEqual(len(rep["report"]["items"]), 30)
+            prev = op_get_content_preview({"state_dir": str(self.root), "content_id": "ER-C1-015"})
+            self.assertTrue(prev["ok"], prev)
+            status = op_get_workflow_status({"state_dir": str(self.root)})
+            self.assertTrue(status["ok"], status)
+            self.assertEqual(status["result"]["job_count"], 30)
+        finally:
+            _install_fake_module(self, "batch_guard_v45", _fake_batch_guard_module())
+    def test_op_start_workflow_invalid_plan(self):
+        out = op_start_workflow({"cycle": "C1", "plan": "1-year", "state_dir": str(self.root), "operator": "op-1"})
+        self.assertFalse(out["ok"])
+        self.assertEqual(out["error"], "INVALID_INPUT")
+    def test_op_start_workflow_month_wrong_topic_count(self):
+        out = op_start_workflow({"topics": list(_TOPICS), "cycle": "C1", "plan": "1-month", "state_dir": str(self.root), "operator": "op-1"})
+        self.assertFalse(out["ok"])
+        self.assertEqual(out["error"], "INVALID_INPUT")
     def test_op_get_workflow_status(self):
         out = op_get_workflow_status({"state_dir": str(self.root), "content_id": "ER-T-001"})
         self.assertTrue(out["ok"], out)

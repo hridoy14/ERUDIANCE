@@ -95,9 +95,20 @@ def _fake_run_job(state_path, adapters=None, mode="TEST_FIXTURE"):
     return {"status": "TEST_FIXTURE_PASS", "state_path": str(state_path), "mode": mode}
 
 
+def _fake_run_plan(root, topics, cycle, plan="7-day", strategy=None, mode="TEST_FIXTURE", per_topic_sources=None):
+    if topics is None:
+        want = {"1-day": 1, "7-day": 7, "1-month": 30}[plan]
+        topics = ["Fake topic %d" % i for i in range(1, want + 1)]
+    return _fake_run_batch(root, topics, cycle, strategy=strategy, mode=mode)
+
+
 def _fake_batch_guard_module():
     mod = types.ModuleType("batch_guard_v45")
     mod.run_batch = _fake_run_batch
+    mod.run_plan = _fake_run_plan
+    def _plan_summary(root):
+        raise FileNotFoundError("no plan.json")
+    mod.plan_summary = _plan_summary
     mod.run_job = _fake_run_job
     mod.verify_batch_strategy = lambda root, strategy: {"valid": True, "strategy": strategy}
     mod.check_duplicate_images = lambda root: {"duplicates": [], "count": 0}

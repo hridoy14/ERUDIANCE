@@ -3,7 +3,7 @@ from datetime import date,datetime,timedelta,timezone
 from pathlib import Path
 from unittest import mock
 from PIL import Image
-from batch_guard_v45 import initialise,summary,AGENT_REGISTRY,STAGE_AGENT,build_adapters,run_job,run_batch,verify_batch_strategy,check_duplicate_images,research_due,generate_topics,prepare_auto_batch,default_auto_strategy
+from batch_guard_v45 import initialise,summary,AGENT_REGISTRY,STAGE_AGENT,build_adapters,run_job,run_batch,run_plan,plan_summary,verify_batch_strategy,check_duplicate_images,research_due,generate_topics,prepare_auto_batch,default_auto_strategy
 import batch_guard_v45
 from competitor_monitor import assess_market_signals
 from chatgpt_bridge_v43 import load,save
@@ -94,6 +94,84 @@ class AutoTopicTests(unittest.TestCase):
    with Image.open(path) as im:self.assertEqual(im.size,(1080,1350))
    seen.add(filehash(path))
   self.assertEqual(len(seen),7)
+ def test_run_batch_explicit_topics_live(self):
+  # Explicit topics (e.g. researched by Claude) with caller-supplied
+  # sources run live: the sources the caller actually read are
+  # attached (USER_SUPPLIED) with fresh research evidence. Without
+  # caller-supplied sources the live gates apply as before
+  # (RESEARCH_DUE / LIVE_SOURCES_REQUIRED) — see
+  # test_run_batch_live_research_due.
+  from datetime import date as _date
+  today = _date.today().isoformat()
+  topics=['AI voice agents for dental clinics','AI receptionist for law firms','Call automation for estate agents','After-hours call answering for vets','AI phone orders for Shopify stores','Support automation for e-commerce stores','Workflow automation for accountants']
+  urls={'AI voice agents for dental clinics':'https://erudience.com/services/voice-ai-systems','AI receptionist for law firms':'https://erudience.com/services/voice-ai-systems','Call automation for estate agents':'https://erudience.com/services/voice-ai-systems','After-hours call answering for vets':'https://erudience.com/services/voice-ai-systems','AI phone orders for Shopify stores':'https://erudience.com/services/voice-ai-systems','Support automation for e-commerce stores':'https://erudience.com/services/support-automation','Workflow automation for accountants':'https://erudience.com/services/business-workflow-automation'}
+  sources={t:[{'url':'https://erudience.com','verified_at':today},{'url':urls[t],'verified_at':today}] for t in topics}
+  r=run_batch(self.root,topics,'20261124',mode='LIVE',per_topic_sources=sources)
+  self.assertFalse(r['auto_topics'])
+  self.assertTrue(all(j['status']=='READY_FOR_OWNER_REVIEW' for j in r['jobs']),r['jobs'])
+  self.assertEqual(r['batch']['batch_status'],'READY_FOR_OWNER_REVIEW')
+  manifest=json.loads((Path(self.root)/'manifest.json').read_text())
+  for job in manifest['jobs']:
+   state=load(job['state'])
+   self.assertEqual(state['job'].get('topic_source'),'user-supplied')
+   self.assertTrue(state['job'].get('sources'))
+class PlanTests(unittest.TestCase):
+ def setUp(self):self.tmp=tempfile.TemporaryDirectory();self.root=self.tmp.name
+ def tearDown(self):self.tmp.cleanup()
+ def test_generate_topics_30_distinct(self):
+  topics=generate_topics('20261124',30)
+  self.assertEqual(len(topics),30);self.assertEqual(len(set(topics)),30)
+ def test_run_plan_1day_fixture(self):
+  r=run_plan(self.root,None,'20261124',plan='1-day')
+  self.assertEqual(r['plan'],'1-day');self.assertEqual(len(r['jobs']),1)
+  self.assertTrue(all(j['status']=='TEST_FIXTURE_PASS' for j in r['jobs']))
+  self.assertEqual([s['day'] for s in r['schedule']],[1])
+  self.assertEqual([j['scheduled_day'] for j in r['jobs']],[1])
+  self.assertEqual(r['jobs'][0]['content_id'],'ER-20261124-001')
+  plan=json.loads((Path(self.root)/'plan.json').read_text())
+  self.assertEqual(plan['plan'],'1-day');self.assertEqual(plan['kind'],'daily')
+  self.assertEqual(len(plan['jobs']),1)
+  agg=plan_summary(self.root)
+  self.assertEqual(agg['expected'],1);self.assertEqual(len(agg['items']),1)
+  self.assertEqual(agg['batch_status'],'NOT_APPROVED')  # fixture jobs are not READY
+ def test_run_plan_7day_fixture(self):
+  r=run_plan(self.root,None,'20261124',plan='7-day')
+  self.assertEqual(r['plan'],'7-day');self.assertEqual(len(r['jobs']),7)
+  self.assertTrue(all(j['status']=='TEST_FIXTURE_PASS' for j in r['jobs']))
+  self.assertEqual([s['day'] for s in r['schedule']],[1,2,3,4,5,6,7])
+  self.assertEqual([j['scheduled_day'] for j in r['jobs']],[1,2,3,4,5,6,7])
+ def test_run_plan_month_fixture(self):
+  r=run_plan(self.root,None,'20261124',plan='1-month')
+  self.assertEqual(r['plan'],'1-month');self.assertEqual(len(r['jobs']),30)
+  self.assertTrue(all(j['status']=='TEST_FIXTURE_PASS' for j in r['jobs']))
+  self.assertEqual(len(set(r['topics'])),30)
+  self.assertEqual([s['day'] for s in r['schedule']],list(range(1,31)))
+  self.assertEqual([s['week'] for s in r['schedule']],[1]*7+[2]*7+[3]*7+[4]*7+[5]*2)
+  self.assertTrue(all(j['content_id'].startswith('ER-20261124-0') for j in r['jobs']))
+  self.assertFalse(any('-w' in j['content_id'] for j in r['jobs']))
+  # Promotion slots: days 7, 14, 21, 28 carry the promotion slot.
+  for day in (7,14,21,28):
+   state=load(str(Path(self.root)/('ER-20261124-%03d.json'%day)))
+   self.assertTrue(state['job']['slot'].get('promotion'))
+  for day in (1,8,15,22,29,30):
+   state=load(str(Path(self.root)/('ER-20261124-%03d.json'%day)))
+   self.assertFalse(state['job']['slot'].get('promotion'))
+  plan=json.loads((Path(self.root)/'plan.json').read_text())
+  self.assertEqual(plan['plan'],'1-month');self.assertEqual(plan['kind'],'daily')
+  self.assertEqual(len(plan['jobs']),30)
+  agg=plan_summary(self.root)
+  self.assertEqual(agg['expected'],30);self.assertEqual(len(agg['items']),30)
+  self.assertEqual(agg['batch_status'],'NOT_APPROVED')  # fixture jobs are not READY
+  # Every daily job carries the full 7-slot strategy.
+  state=load(str(Path(self.root)/'ER-20261124-030.json'))
+  self.assertEqual(len(state['job']['strategy']),7)
+  self.assertEqual(sum(1 for s in state['job']['strategy'] if s.get('promotion')),1)
+ def test_run_plan_invalid_plan(self):
+  with self.assertRaises(ValueError):
+   run_plan(self.root,None,'20261124',plan='1-year')
+ def test_run_plan_month_wrong_topic_count(self):
+  with self.assertRaises(ValueError):
+   run_plan(self.root,['only-one-topic'],'20261124',plan='1-month')
 class RegistryTests(unittest.TestCase):
  def test_eighteen_agents(self):
   self.assertEqual(len(AGENT_REGISTRY),18)
