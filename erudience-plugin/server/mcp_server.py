@@ -338,6 +338,25 @@ def _get_research_brief(arguments):
                 "A platform is listed only where a profile was found in search; 'not found' means unverified, not non-existent."]}
 
 
+def _op_get_image_preview(args):
+    """get_image_preview plus a download URL for the poster PNG.
+
+    The bridge op returns metadata only. When ERUDIANCE_PUBLIC_URL is
+    set (the deployed server's public URL), add the key-protected
+    download link served by mcp_http.py (GET /image/<id>.png), so
+    Claude can hand the user a link to the actual poster file. With
+    no public URL configured (local stdio use), no link is added.
+    """
+    result = chatgpt_bridge_v43.op_get_image_preview(args)
+    if isinstance(result, dict) and result.get("ok") and result.get("image_path"):
+        base = os.environ.get("ERUDIANCE_PUBLIC_URL", "").rstrip("/")
+        if base and result.get("content_id"):
+            result = dict(result)
+            result["download_url"] = "%s/image/%s.png" % (
+                base, result["content_id"])
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Operation allowlist / denylist (the owner's access rule).
 # ---------------------------------------------------------------------------
@@ -350,7 +369,7 @@ ALLOWED_OPS = {
     "resume_workflow": chatgpt_bridge_v43.op_resume_workflow,
     "get_agent_report": chatgpt_bridge_v43.op_get_agent_report,
     "get_content_preview": chatgpt_bridge_v43.op_get_content_preview,
-    "get_image_preview": chatgpt_bridge_v43.op_get_image_preview,
+    "get_image_preview": _op_get_image_preview,
     "validate_content": chatgpt_bridge_v43.op_validate_content,
     "validate_image": chatgpt_bridge_v43.op_validate_image,
     "get_batch_report": chatgpt_bridge_v43.op_get_batch_report,
