@@ -15,3 +15,5 @@ services:
         sync: false
       - key: ERUDIANCE_STATE_DIR
         value: /tmp/erudiance-state
+      - key: ERUDIANCE_PUBLIC_URL
+        value: https://erudiance-mcp-http.onrender.com
