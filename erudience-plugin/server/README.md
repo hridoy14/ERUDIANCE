@@ -242,20 +242,33 @@ The old `/tmp/repro_get_body.py` 405 expectation is superseded by
 this test. Full plugin suite 247/247 + 48/48 OK after the change.
 
 Poster download (2026-11-24): `GET /image/<content_id>.png`
-serves the poster PNG from the state dir (X-Api-Key required;
-only ids matching `ER-<cycle>-<nnn>.png` are served, so no path
-traversal is possible; missing file → 404). `get_image_preview`
-also returns a `download_url` for the poster when
-`ERUDIANCE_PUBLIC_URL` is set (Render: set in `render.yaml` to
-`https://erudiance-mcp-http.onrender.com`), so Claude can hand the
-user the link in chat; without that env var no link is added.
-Verified with `/tmp/test_mcp_download.py`, 11/11: download with
+serves the poster PNG from the state dir. Auth is either the
+X-Api-Key header or a signed token in the URL
+(`?token=<hmac>&exp=<unix>`, HMAC-SHA256 of "<content_id>:<exp>"
+keyed by ERUDIANCE_API_KEY, valid 24h) — a plain tap in a browser
+cannot send a header, so the token is what makes the link Claude
+hands out actually openable; the key itself never appears in a
+URL. Only ids matching `ER-<cycle>-<nnn>.png` are served, so no
+path traversal is possible; missing file → 404. `get_image_preview`
+also returns a signed `download_url` for the poster when both
+ERUDIANCE_PUBLIC_URL and ERUDIANCE_API_KEY are set (Render: the
+URL is set in `render.yaml`; the key lives in the dashboard only),
+so Claude can hand the user the link in chat; without those env
+vars no link is added.
+Verified with `/tmp/test_mcp_download.py`, 16/16: download with
 key → 200 `image/png` (bytes match), no/wrong key → 401, bad ids
-and traversal attempts → 404, missing file → 404, preview
-`download_url` present with the env var and absent without it.
+and traversal attempts → 404, missing file → 404, signed URL with
+no header → 200, expired/tampered/wrong-id token → 401, preview
+`download_url` present (signed) with the env vars and absent
+without them.
 Limit: on the free Render plan the state dir is ephemeral — a
 poster is gone after a restart/redeploy (404) and the run must be
-repeated. Full plugin suite 247/247 + 48/48 OK after the change.
+repeated. NOTE: `render.yaml` env vars are NOT always applied by
+Render's blueprint sync — the first deploy had ERUDIANCE_PUBLIC_URL
+missing from the running service even though render.yaml declared
+it; it had to be added in the dashboard Environment tab (which
+triggered a redeploy). Full plugin suite 247/247 + 48/48 OK after
+the change.
 
 ## Deployment — LIVE
 
