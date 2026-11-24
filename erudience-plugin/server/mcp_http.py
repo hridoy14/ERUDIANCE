@@ -2,7 +2,9 @@
 
 Streamable HTTP MCP server (JSON-RPC 2.0 over POST /mcp) exposing the
 SAME tools as the stdio MCP server (``mcp_server.py``): the 13 run-only
-operations plus the 3 template-store tools (save/list/get_template).
+operations plus the 3 template-store tools (save/list/get_template)
+plus the 3 competitor-research tools (list_competitors, get_competitor,
+get_research_brief).
 This is what claude.ai connects to as a custom connector
 (Customize -> Connectors -> Add custom connector -> URL + API key).
 
