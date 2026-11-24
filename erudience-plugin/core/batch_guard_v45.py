@@ -1372,6 +1372,15 @@ def run_job(state_path, adapters=None, mode='TEST_FIXTURE'):
     work_dir = Path(state_path).parent
     job = dict(state['job'])
     job['mode'] = mode
+    # Live-mode gate confinement (D-15): the gate allows file paths
+    # under cwd, the plugin root, or the job's state/evidence dir.
+    # The server's cwd is the repo root while the state dir is
+    # /tmp/erudiance-state, so without these keys a live run blocked
+    # at SOURCE_REVIEW with PATH_OUTSIDE_ALLOWED_ROOT (Render,
+    # 2026-11-24: all 7 jobs BLOCKED, 4 repairs). The state file's
+    # parent IS the job's state/evidence dir, so record it here.
+    job['state_dir'] = str(work_dir.resolve())
+    job['evidence_dir'] = str(work_dir.resolve())
     state['job'] = job
     chain_adapters = adapters if adapters is not None else build_adapters(job, work_dir, mode=mode)
     chain = Chain(job, chain_adapters)
